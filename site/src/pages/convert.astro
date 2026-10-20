@@ -1,0 +1,16 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Convert a file" description="The open tools and commands to convert a file from one format to another, and what each step loses.">
+  <h1>Convert a file</h1>
+  <p class="lede">Give the format you have and the one you want, as an extension (<code>wpd</code>, <code>xls</code>) or a format id. You get the cheapest chains of open tools, lossless steps first, with the commands.</p>
+  <form id="convert" class="filters">
+    <div><label for="from">From</label><input id="from" name="from" placeholder="e.g. wpd" required autocomplete="off" /></div>
+    <div><label for="to">To</label><input id="to" name="to" placeholder="e.g. pdf" required autocomplete="off" /></div>
+    <div><label>&nbsp;</label><button class="btn primary" type="submit">Find a way</button></div>
+  </form>
+  <p id="status" class="small muted" aria-live="polite"></p>
+  <div id="paths"></div>
+  <p class="small muted">Conversions come from what FFmpeg, ImageMagick, Pandoc and LibreOffice report they read and write. Extensions are mapped to their most common format: open a format page for the exact versions.</p>
+  <script src="../scripts/convert.ts"></script>
+</Base>

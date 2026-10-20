@@ -1,0 +1,62 @@
+---
+import "../styles/global.css";
+import { SITE_NAME, REPO_URL, LICENSES, PITCH } from "../lib/config.ts";
+
+interface Props { title?: string; description?: string }
+const { title, description = PITCH } = Astro.props;
+const fullTitle = title ? `${title} — ${SITE_NAME}` : `${SITE_NAME} — what is this file, and what opens it?`;
+const path = Astro.url.pathname;
+const nav = [
+  ["/formats/", "Formats"],
+  ["/identify/", "Identify a file"],
+  ["/convert/", "Convert"],
+  ["/agents/", "For agents"],
+  ["/contribute/", "Contribute"],
+  ["/sources/", "Sources"],
+  ["/about/", "About"],
+];
+const canonical = new URL(path, Astro.site);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="color-scheme" content="light dark" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="/" aria-label={`${SITE_NAME} home`}>
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+          {SITE_NAME}
+        </a>
+        <nav class="nav" aria-label="Main">
+          {nav.map(([href, label]) => <a href={href} aria-current={path.startsWith(href) ? "page" : undefined}>{label}</a>)}
+        </nav>
+      </div>
+    </header>
+    <main id="main" class="container">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="container">
+        <p>{SITE_NAME} is an independent, open project. Code {LICENSES.code}, data {LICENSES.data}; imported data keeps its source's licence. Sister project of <a href="https://opendevicedb.org">OpenDeviceDB</a>.</p>
+        <ul class="footer-links">
+          <li><a href={REPO_URL}>Source on GitHub</a></li>
+          <li><a href="/policy/">Content policy</a></li>
+          <li><a href="/api/index.json">JSON API</a></li>
+          <li>No tracking, no cookies, no external scripts.</li>
+        </ul>
+      </div>
+    </footer>
+  </body>
+</html>

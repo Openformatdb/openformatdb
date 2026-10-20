@@ -1,0 +1,12 @@
+---
+import Base from "../layouts/Base.astro";
+import { REPO_URL } from "../lib/config.ts";
+---
+<Base title="About" description="Why OpenFormatDB exists and how it is built.">
+  <div class="prose">
+    <h1>About</h1>
+    <p class="lede">Knowledge about file formats is split across silos: identification registries say what a file is, parsing grammars describe its bytes, converters know what they can turn it into, wikis hold the rest in prose. OpenFormatDB joins them, per format, for people and for agents.</p>
+    <p>It is the sister project of <a href="https://opendevicedb.org">OpenDeviceDB</a>, built the same way: files in git are the database, importers aggregate existing sources with a link back, and the site and API are static builds of the repository. The design is in <a href={`${REPO_URL}/blob/main/SPEC.md`}>SPEC.md</a>.</p>
+    <p>Code AGPL-3.0-or-later, data CC BY-SA 4.0; imported data keeps its source's licence (PRONOM: MIT, Wikidata: CC0).</p>
+  </div>
+</Base>

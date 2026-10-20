@@ -1,0 +1,17 @@
+---
+import Base from "../layouts/Base.astro";
+import { REPO_URL } from "../lib/config.ts";
+---
+<Base title="Contribute" description="How to add or improve a format record in OpenFormatDB.">
+  <div class="prose">
+    <h1>Contribute</h1>
+    <p class="lede">Records are YAML files in git, changed by pull request. A partial contribution helps: one verified signature, the layout of a header, a tool that opens the format.</p>
+    <h2 id="edit">Improve a record</h2>
+    <p>Every format page has an <strong>Improve this record</strong> button: it opens the curated file on GitHub (or a new one that overrides the imported data). The schema is <a href={`${REPO_URL}/blob/main/schema/format.schema.json`}>schema/format.schema.json</a>.</p>
+    <h2 id="claims">Claim a format</h2>
+    <p>Starting to document a format? Add a claim (who, contact, scope, until when) so others coordinate with you, through the MCP server's <code>claim_format</code> or by hand in the YAML. Claims expire after at most 90 days.</p>
+    <h2 id="sources">Fix imported data</h2>
+    <p>Data imported from PRONOM, Wikidata or the converters is refreshed weekly: fix it upstream (Wikidata is the easiest), or override it in a curated record.</p>
+    <p>See the <a href="/policy/">content policy</a>: no copies of paywalled standards, no keys, nothing to remove DRM.</p>
+  </div>
+</Base>

@@ -1,0 +1,39 @@
+---
+import Base from "../layouts/Base.astro";
+import { counts } from "../lib/data.ts";
+import { PITCH, REPO_URL } from "../lib/config.ts";
+const c = counts();
+const fmt = (n: number) => n.toLocaleString("en");
+---
+<Base>
+  <section class="hero">
+    <h1>What is this file, and what opens it?</h1>
+    <p class="lede">{PITCH}</p>
+    <form class="search-big" role="search" action="/formats/" method="get">
+      <label for="home-q" class="sr-only">Search formats</label>
+      <input id="home-q" name="q" type="search" placeholder="Name, extension, MIME type, PRONOM id…" />
+      <button class="btn primary" type="submit">Search</button>
+    </form>
+    <p class="row"><a class="btn" href="/identify/">Identify a file</a> <span class="small muted">Drop a file: its first bytes are read in your browser, nothing is uploaded.</span></p>
+    <p class="row"><a class="btn" href="/convert/">Convert a file</a> <span class="small muted">The open tools and commands to get from one format to another, and what is lost.</span></p>
+    <p class="small muted">Try <a href="/formats/?q=wpd">wpd</a>, <a href="/formats/?q=psd">psd</a>, <a href="/formats/?q=fmt%2F13">fmt/13</a>, <a href="/formats/?q=matroska">matroska</a>.</p>
+  </section>
+  <div class="counters" aria-label="Directory counters">
+    <a class="counter" href="/formats/"><strong>{fmt(c.formats)}</strong><span>formats</span></a>
+    <a class="counter" href="/sources/"><strong>{fmt(c.sources)}</strong><span>aggregated sources</span></a>
+    <a class="counter" href="/formats/?status=writable" style="--st: var(--st-writable)"><strong>{fmt(c.byStatus.writable)}</strong><span><i class="dot"></i>writable with open tools</span></a>
+    <a class="counter" href="/formats/?status=readable" style="--st: var(--st-readable)"><strong>{fmt(c.byStatus.readable)}</strong><span><i class="dot"></i>readable with open tools</span></a>
+    <a class="counter" href="/convert/"><strong>{fmt(c.conversions)}</strong><span>conversions</span></a>
+  </div>
+  <div class="two-col">
+    <section>
+      <h2>For people</h2>
+      <p>Each format page says how to recognise the format, which software opens it (open source first), how to convert it and what the conversion loses, and where it is documented.</p>
+    </section>
+    <section>
+      <h2>For AI agents</h2>
+      <p>Before writing a parser or reverse engineering a file, an agent asks the <a href="/agents/">MCP server</a>: <code>identify_file</code>, <code>lookup_format</code>, <code>find_conversion</code>. When it documents something new, it claims the format and publishes its findings.</p>
+    </section>
+  </div>
+  <p class="small"><a href={REPO_URL}>Open source on GitHub</a>. Data from PRONOM, Wikidata and the converters' own format lists, with a link back to each source.</p>
+</Base>

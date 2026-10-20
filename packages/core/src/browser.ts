@@ -299,3 +299,23 @@ export function conversionPaths(records: Pick<FormatRecord, "id" | "family" | "c
   }
   return found;
 }
+
+/**
+ * Paths between any of several sources and any of several targets (e.g. every format with the
+ * extension .wpd to every format with .pdf), cheapest first. Each pair keeps its own best paths.
+ */
+export function conversionPathsBetween(records: Pick<FormatRecord, "id" | "family" | "conversions">[], froms: string[], tos: string[], opts: { maxSteps?: number; limit?: number } = {}): ConversionPath[] {
+  const all: ConversionPath[] = [];
+  for (const f of froms) for (const t of tos) if (f !== t) all.push(...conversionPaths(records, f, t, opts));
+  const seen = new Set<string>();
+  return all
+    .sort((a, b) => a.cost - b.cost)
+    .filter((p) => { const k = p.steps.map((s) => `${s.from}>${s.tool}>${s.to}`).join("|"); return !seen.has(k) && seen.add(k); })
+    .slice(0, opts.limit ?? 3);
+}
+
+/** Formats an extension may mean, the most handled first (records holding it, by tool count). */
+export function formatsForExtension<T extends Pick<IndexEntry, "id" | "identifiers"> & { tools?: number }>(entries: T[], ext: string, max = 8): T[] {
+  const e = extensionOf(ext);
+  return entries.filter((x) => x.identifiers.extensions?.includes(e)).sort((a, b) => (b.tools ?? 0) - (a.tools ?? 0) || a.id.localeCompare(b.id)).slice(0, max);
+}

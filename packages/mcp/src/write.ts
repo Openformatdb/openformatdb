@@ -102,7 +102,7 @@ export const claimFormat = {
     agent: z.string().max(200).optional().describe("Agent/tooling used"),
     force_new: z.boolean().optional().describe("Create a new record even though a similar format exists"),
   },
-  run(ctx: Context, a: any): Result {
+  async run(ctx: Context, a: any): Promise<Result> {
     const on = ctx.today ?? today();
     const { backend } = ctx;
     const root = backend.root;
@@ -117,8 +117,8 @@ export const claimFormat = {
     if (!id) {
       if (!a.name) return fail("Give the format id, or name + category for a new format.");
       id = makeId(a.name, a.version);
-      if (!backend.get(id) && !a.force_new) {
-        const near = search(backend.index(on), `${a.name} ${a.version ?? ""}`, { limit: 3 }).filter((h) => h.score >= 20);
+      if (!(await backend.get(id)) && !a.force_new) {
+        const near = search(await backend.index(on), `${a.name} ${a.version ?? ""}`, { limit: 3 }).filter((h) => h.score >= 20);
         if (near.length) {
           return fail(`Similar formats exist: ${near.map((n) => `${n.id} (${n.name}${n.version ? " " + n.version : ""})`).join(", ")}. ` +
             `Pass id to claim one of them, or force_new: true if yours is really different.`, { similar: near.map((n) => ({ id: n.id, name: n.name, version: n.version })) });
@@ -127,7 +127,7 @@ export const claimFormat = {
     }
     if (!ID_RE.test(id)) return fail(`Invalid id "${id}": lowercase [a-z0-9] with - . + separators.`);
 
-    const known = backend.get(id);
+    const known = await backend.get(id);
     let rec = readCurated(root, id);
     const action = rec ? "updated" : "created";
     if (!rec) {
@@ -207,7 +207,7 @@ export const publishFindings = {
     allow_downgrade: z.boolean().optional().describe("Allow lowering the status (explain why in the summary or a verification note)"),
     release_claim_of: z.string().optional().describe("Remove the live claims of this claimant now that the work is published"),
   },
-  run(ctx: Context, a: any): Result {
+  async run(ctx: Context, a: any): Promise<Result> {
     const on = ctx.today ?? today();
     const { backend } = ctx;
     const root = backend.root;
@@ -224,10 +224,10 @@ export const publishFindings = {
     ]);
     if (hits.length) return policyRefusal(hits, root);
 
-    const known = backend.get(a.id);
+    const known = await backend.get(a.id);
     if (!known) return fail(`No format "${a.id}". Find its id with identify_file or search_formats, or create it with claim_format first.`);
-    if (patch.family && !backend.get(patch.family)) return fail(`family "${patch.family}" is not a known format id.`);
-    for (const c of patch.conversions ?? []) if (!backend.get(c.to)) return fail(`conversions: target "${c.to}" is not a known format id.`);
+    if (patch.family && !(await backend.get(patch.family))) return fail(`family "${patch.family}" is not a known format id.`);
+    for (const c of patch.conversions ?? []) if (!(await backend.get(c.to))) return fail(`conversions: target "${c.to}" is not a known format id.`);
     const base = readCurated(root, a.id) ?? stub(known, on);
     if (patch.status && statusRank(patch.status as Status) < statusRank(known.status) && !a.allow_downgrade) {
       return fail(`Status can only move forward: "${a.id}" is "${known.status}" and the patch says "${patch.status}" (${STATUSES.join(" → ")}). ` +

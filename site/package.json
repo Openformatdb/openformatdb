@@ -1,0 +1,17 @@
+{
+  "name": "site",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@openformatdb/core": "*",
+    "astro": "^7.4.0",
+    "cookie": "^2.0.1"
+  }
+}

@@ -1,0 +1,30 @@
+---
+import Base from "../layouts/Base.astro";
+import { db } from "../lib/data.ts";
+const { sources } = db();
+const curated = sources.get("curated")!;
+const list = [...sources.values()].filter((s) => s.id !== "curated").sort((a, b) => b.count - a.count);
+const fmt = (n: number) => n.toLocaleString("en");
+---
+<Base title="Sources" description="The registries and tools OpenFormatDB aggregates, with their licences and snapshot dates.">
+  <div class="prose">
+    <h1>Sources</h1>
+    <p class="lede">Most of what OpenFormatDB knows comes from registries and tools that did the work first. We aggregate them so one lookup covers identification, software and conversions; every imported record links back to its source, and fixes to imported data belong upstream.</p>
+  </div>
+  <div class="grid" style="margin-top:20px">
+    {list.map((s) => (
+      <article class="card" id={s.id}>
+        <h2 style="margin:0 0 4px; font-size:1.2rem"><a href={s.url}>{s.name}</a></h2>
+        <dl class="facts">
+          <dt>Records</dt><dd>{fmt(s.count)}</dd>
+          <dt>Licence</dt><dd>{s.license}</dd>
+          {s.fetched_at && <><dt>Fetched</dt><dd><time datetime={s.fetched_at}>{s.fetched_at.slice(0, 10)}</time></dd></>}
+          <dt>Source id</dt><dd class="mono">{s.id}</dd>
+        </dl>
+      </article>
+    ))}
+  </div>
+  <h2 id="curated">Curated records</h2>
+  <p class="prose">{fmt(curated.count)} records are written directly in this repository (<a href={curated.url}><code>data/formats/</code></a>), by people and their agents, under {curated.license}. They override and enrich imported records for the same format.</p>
+  <p class="small muted">Records are merged only on a shared PRONOM id, Wikidata id or Library of Congress id, never on an extension. Machine-readable: <a href="/api/sources.json">/api/sources.json</a>.</p>
+</Base>

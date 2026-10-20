@@ -155,10 +155,15 @@ cross-check. Every licence marked "to confirm" is checked before its importer is
 
 ## Static API (built by the site)
 
-- `/api/index.json` — `[{id, name, category, status, identifiers, sources[]}]`
+- `/api/index.json` — one core `IndexEntry` per format (identifiers without signatures, tool counts)
 - `/api/formats/<id>.json` — full merged record
-- `/api/by-extension/<ext>.json`, `/api/by-mime/<type>/<subtype>.json` — candidate ids
-- `/api/conversions.json` — the conversion graph, `[{from, to, tool, fidelity}]`
+- `/api/magic.json` — `{id: [[offset, hex], …]}`, for identification
+- `/api/conversions.json` — `{id: [conversion, …]}` including inherited ones: the graph
+- `/api/sources.json` — sources with counts, licences and snapshot dates
+
+The site (Astro, `site/`) builds these and one page per format, plus a "what is this file?" page
+that reads the first bytes in the browser (R1, done) and a conversion page (R2, done). It deploys
+to GitHub Pages on every push and after every import.
 
 The MCP server reads this API remotely (`OFDB_API_URL`) or the local repository
 (`OFDB_REPO`), so it works before and after the site is online.

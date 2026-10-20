@@ -16,7 +16,7 @@ export function createServer(backend: Backend, opts: { today?: string } = {}): M
         "and how far it is documented or reverse engineered. Before writing a parser or reverse engineering a file, " +
         "call identify_file with its first bytes (magic_hex) and name, then lookup_format on the best candidate. " +
         "If nothing open handles it and you start documenting it, call claim_format first and publish_findings when done, then open a pull request. " +
-        `Data: ${backend.location}.`,
+        `Data: ${backend.kind} (${backend.location})${backend.root ? "" : ", read-only"}.`,
     },
   );
   const ctx: Context = { backend, today: opts.today };
@@ -31,7 +31,7 @@ export function createServer(backend: Backend, opts: { today?: string } = {}): M
       },
       async (args: any) => {
         try {
-          const result = t.run(ctx, args ?? {});
+          const result = await t.run(ctx, args ?? {});
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }], isError: !result.ok };
         } catch (e: any) {
           return { content: [{ type: "text" as const, text: JSON.stringify({ ok: false, error: String(e?.message ?? e) }) }], isError: true };
@@ -47,5 +47,5 @@ const isMain = (() => { try { return import.meta.url === pathToFileURL(realpathS
 if (isMain) {
   const backend = backendFromEnv();
   await createServer(backend).connect(new StdioServerTransport());
-  console.error(`openformatdb-mcp: data at ${backend.location}`);
+  console.error(`openformatdb-mcp: ${backend.kind} data at ${backend.location}`);
 }

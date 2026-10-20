@@ -1,0 +1,110 @@
+---
+import Base from "../../layouts/Base.astro";
+import StatusBadge from "../../components/StatusBadge.astro";
+import { db, formatUrl, jsonUrl, editUrl, sourceName } from "../../lib/data.ts";
+import { displayName, FIDELITY_LABEL } from "../../lib/config.ts";
+import { effectiveStatus, liveClaims, type FormatRecord } from "@openformatdb/core";
+
+export function getStaticPaths() {
+  return db().records.map((r) => ({ params: { id: r.id } }));
+}
+
+const { id } = Astro.params;
+const { byId, versions, on } = db();
+const r = byId.get(id!) as FormatRecord;
+const title = displayName(r.name, r.version);
+const status = effectiveStatus(r, on);
+const family = r.family ? byId.get(r.family) : undefined;
+const kids = (versions.get(r.id) ?? []).sort((a, b) => (a.version ?? a.name).localeCompare(b.version ?? b.name, "en", { numeric: true }));
+const w = (t: NonNullable<FormatRecord["tools"]>[number]) => (t.open_source ? 4 : 0) + (t.writes ? 2 : 0) + (t.via ? 0 : 1);
+const tools = [...(r.tools ?? [])].sort((a, b) => w(b) - w(a) || a.name.localeCompare(b.name));
+const SHOW = 40;
+const order = ["lossless", "partial", "lossy"];
+const conversions = [...(r.conversions ?? [])].sort((a, b) => order.indexOf(a.fidelity) - order.indexOf(b.fidelity) || a.to.localeCompare(b.to));
+const ids = r.identifiers ?? {};
+const claims = liveClaims(r, on);
+const desc = r.summary ?? `${title}: identifiers, software that opens and converts it, and how far it is documented.`;
+const exts = (ids.extensions ?? []).map((e) => `.${e}`).join(", ");
+---
+<Base title={`${title}${exts ? ` (${exts.split(", ").slice(0, 3).join(", ")})` : ""}`} description={desc.slice(0, 300)}>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/formats/">Formats</a>{family && <> › <a href={formatUrl(family.id)}>{displayName(family.name, family.version)}</a></>}</nav>
+  <div class="dev-head">
+    <h1>{title}</h1>
+    <StatusBadge status={status} lg />
+  </div>
+  <p class="muted">{r.category}{r.aliases?.length ? ` · also known as ${r.aliases.slice(0, 4).join(", ")}` : ""}</p>
+  {r.summary && <p class="lede">{r.summary}</p>}
+
+  {claims.length > 0 && (
+    <div class="card claim">
+      {claims.map((c) => <p><strong>{c.who}</strong> is working on it ({c.scope}) until {c.expires}. Contact: {c.contact}</p>)}
+    </div>
+  )}
+
+  <h2 id="identify">Identify it</h2>
+  <div class="table-wrap"><table>
+    <tbody>
+      {ids.extensions?.length ? <tr><th scope="row">Extensions</th><td>{ids.extensions.map((e) => <code>.{e}</code>)}</td></tr> : null}
+      {ids.mime?.length ? <tr><th scope="row">MIME types</th><td>{ids.mime.map((m) => <code>{m}</code>)}</td></tr> : null}
+      {ids.magic?.length ? <tr><th scope="row">Signatures</th><td>{ids.magic.slice(0, 6).map((m) => <div><code>{m.hex}</code> at byte {m.offset}{m.notes ? <span class="muted small"> ({m.notes})</span> : null}</div>)}</td></tr> : null}
+      {ids.puid?.length ? <tr><th scope="row">PRONOM</th><td>{ids.puid.map((p) => <a href={`https://www.nationalarchives.gov.uk/PRONOM/${p}`}><code>{p}</code></a>)}</td></tr> : null}
+      {ids.wikidata?.length ? <tr><th scope="row">Wikidata</th><td>{ids.wikidata.map((q) => <a href={`https://www.wikidata.org/wiki/${q}`}><code>{q}</code></a>)}</td></tr> : null}
+      {ids.loc_fdd?.length ? <tr><th scope="row">Library of Congress</th><td>{ids.loc_fdd.map((f) => <a href={`https://www.loc.gov/preservation/digital/formats/fdd/${f}.shtml`}><code>{f}</code></a>)}</td></tr> : null}
+      {ids.uti?.length ? <tr><th scope="row">Apple UTI</th><td>{ids.uti.map((u) => <code>{u}</code>)}</td></tr> : null}
+    </tbody>
+  </table></div>
+  <p class="small muted">Not sure your file is this? <a href="/identify/">Identify it</a> from its first bytes, in your browser.</p>
+
+  <h2 id="open">Open it</h2>
+  {tools.length === 0 ? <p class="section-empty">No software is recorded for this format{family ? <> — see its family, <a href={formatUrl(family.id)}>{displayName(family.name)}</a></> : null}.</p> : (
+    <>
+      {tools.every((t) => t.via) && <p class="small muted">Listed for the family; check that the software handles this version.</p>}
+      <ul class="list-plain">
+        {tools.slice(0, SHOW).map((t) => (
+          <li><div class="dev-row">
+            <a class="name" href={t.url}>{t.name}</a>
+            {t.open_source && <span class="badge s-writable">Open source</span>}
+            <span class="meta">{[t.reads && "reads", t.writes && "writes"].filter(Boolean).join(" and ") || "handles"}{t.license ? ` · ${t.license}` : ""}</span>
+          </div></li>
+        ))}
+      </ul>
+      {tools.length > SHOW && <p class="small muted">And {tools.length - SHOW} more in the <a href={jsonUrl(r.id)}>JSON record</a>.</p>}
+    </>
+  )}
+
+  <h2 id="convert">Convert it</h2>
+  {conversions.length === 0 ? <p class="section-empty">No conversion recorded. One of the tools above may export it; <a href="/convert/">search for a chain</a>.</p> : (
+    <div class="table-wrap"><table class="stackable">
+      <thead><tr><th>To</th><th>With</th><th>Fidelity</th><th>Command and losses</th></tr></thead>
+      <tbody>
+        {conversions.map((c) => (
+          <tr>
+            <td data-label="To"><a href={formatUrl(c.to)}>{byId.get(c.to) ? displayName(byId.get(c.to)!.name, byId.get(c.to)!.version) : c.to}</a></td>
+            <td data-label="With">{c.url ? <a href={c.url}>{c.tool}</a> : c.tool}</td>
+            <td data-label="Fidelity">{FIDELITY_LABEL[c.fidelity]}</td>
+            <td data-label="Command">{c.command && <code>{c.command}</code>}{c.losses && <div class="small muted">{c.losses}</div>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table></div>
+  )}
+
+  {(r.spec || r.parsers?.length || r.structure?.length) && <h2 id="documentation">Documentation</h2>}
+  {r.spec && <p>Specification: <strong>{r.spec.availability.replace(/-/g, " ")}</strong>{r.spec.standard ? ` (${r.spec.standard})` : ""}{r.spec.url && <> — <a href={r.spec.url}>{r.spec.url}</a></>}</p>}
+  {r.parsers?.length ? <ul>{r.parsers.map((p) => <li>{p.engine} grammar: <a href={p.url}>{p.url}</a>{p.coverage ? ` (${p.coverage})` : ""}{p.via ? <span class="muted small"> — from the family</span> : null}</li>)}</ul> : null}
+  {r.structure?.length ? <ul>{r.structure.map((s) => <li><strong>{s.name}</strong>: {s.status}{s.confidence ? `, ${s.confidence} confidence` : ""}{s.spec && <> — <a href={s.spec}>description</a></>}</li>)}</ul> : null}
+
+  {kids.length > 0 && (
+    <>
+      <h2 id="versions">Versions and variants ({kids.length})</h2>
+      <ul class="list-plain">{kids.slice(0, 200).map((k) => <li><div class="dev-row"><a class="name" href={formatUrl(k.id)}>{displayName(k.name, k.version)}</a><StatusBadge status={effectiveStatus(k, on)} /></div></li>)}</ul>
+    </>
+  )}
+
+  <h2 id="sources">Sources</h2>
+  <ul>
+    {(r.projects ?? []).map((p) => <li><a href={p.url}>{p.name}</a></li>)}
+  </ul>
+  <p class="small muted">From {(r.provenance?.sources ?? []).map(sourceName).join(", ") || "curated data"}. Updated {r.updated}.</p>
+  <p class="actions"><a class="btn" href={editUrl(r)}>Improve this record</a> <a class="btn" href={jsonUrl(r.id)}>JSON</a></p>
+</Base>

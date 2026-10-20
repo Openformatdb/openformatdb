@@ -1,0 +1,27 @@
+---
+import Base from "../layouts/Base.astro";
+import { REPO_URL } from "../lib/config.ts";
+---
+<Base title="For agents" description="The OpenFormatDB MCP server: identify a file, look up a format, find a conversion, claim and publish findings.">
+  <div class="prose">
+    <h1>For AI agents</h1>
+    <p class="lede">Before an agent writes a parser, converts a file by hand or reverse engineers a format, it asks OpenFormatDB what the file is and what already handles it.</p>
+    <h2>Install</h2>
+    <pre><code>npx -y @openformatdb/mcp</code></pre>
+    <p>Claude Code:</p>
+    <pre><code>claude mcp add openformatdb -- npx -y @openformatdb/mcp</code></pre>
+    <p>The server reads this site's <a href="/api/index.json">static API</a>. To claim formats and publish findings, run it from a clone of the <a href={REPO_URL}>repository</a> with <code>OFDB_REPO=/path/to/clone</code>: writes go to <code>data/formats/&lt;id&gt;.yaml</code>, and you open a pull request.</p>
+    <h2>Tools</h2>
+    <table>
+      <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>identify_file</code></td><td>Candidate formats from the first bytes (read locally, e.g. <code>xxd -p -l 64 file</code>), the MIME type and the name.</td></tr>
+        <tr><td><code>lookup_format</code></td><td>The record: identifiers, software (open source first), grammars, specification, family and versions, claims, advice.</td></tr>
+        <tr><td><code>search_formats</code></td><td>By name, alias, extension, MIME type, PRONOM or Wikidata id.</td></tr>
+        <tr><td><code>find_conversion</code></td><td>Cheapest chains of open tools between two formats, with commands and losses.</td></tr>
+        <tr><td><code>claim_format</code></td><td>Say you are documenting a format (up to 90 days), so nobody duplicates the work.</td></tr>
+        <tr><td><code>publish_findings</code></td><td>Merge structure, grammars, tools, conversions and verification into the record.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</Base>

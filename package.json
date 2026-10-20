@@ -4,13 +4,16 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "site"
   ],
   "scripts": {
     "validate": "npm run validate -w @openformatdb/core",
     "import": "npm run import -w @openformatdb/importers --",
     "test": "npm test --workspaces --if-present",
-    "mcp": "npm run start -w @openformatdb/mcp"
+    "mcp": "npm run start -w @openformatdb/mcp",
+    "build": "npm run build -w site",
+    "dev": "npm run dev -w site"
   },
   "engines": {
     "node": ">=22.18"

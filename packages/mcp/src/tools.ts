@@ -2,7 +2,7 @@
 // Pure functions over a Backend; server.ts exposes them over MCP.
 import { z } from "zod";
 import {
-  SCHEMA, STATUSES, identify, search, liveClaims, effectiveStatus, today, conversionPaths, extensionOf,
+  SCHEMA, STATUSES, identify, search, liveClaims, effectiveStatus, today, conversionPathsBetween, formatsForExtension,
   type FormatRecord, type Status, type Tool,
 } from "@openformatdb/core";
 import type { Backend } from "./backend.ts";
@@ -50,10 +50,10 @@ export function advice(r: FormatRecord, on: string): string {
 }
 
 /** A record as returned to agents: tools ranked and capped, family and versions summarised. */
-function present(backend: Backend, r: FormatRecord, on: string) {
+async function present(backend: Backend, r: FormatRecord, on: string) {
   const tools = rankTools(r.tools ?? []);
-  const family = r.family ? backend.get(r.family) : null;
-  const versions = backend.records().filter((x) => x.family === r.id);
+  const family = r.family ? await backend.get(r.family) : null;
+  const versions = (await backend.records()).filter((x) => x.family === r.id);
   return {
     ...r,
     status: effectiveStatus(r, on),
@@ -74,7 +74,7 @@ export interface ToolDef {
   title: string;
   description: string;
   shape: z.ZodRawShape;
-  run(ctx: Context, args: any): Result;
+  run(ctx: Context, args: any): Promise<Result>;
 }
 
 const identifyFile: ToolDef = {
@@ -90,10 +90,10 @@ const identifyFile: ToolDef = {
     mime: z.string().max(200).optional().describe("MIME type if known, e.g. from `file --mime-type`"),
     limit: z.number().int().min(1).max(50).optional(),
   },
-  run(ctx, a) {
+  async run(ctx, a) {
     if (!a.magic_hex && !a.extension && !a.mime) return fail("Give at least one of magic_hex, extension or mime.");
     const on = ctx.today ?? today();
-    const candidates = identify(ctx.backend.index(on), a, a.limit ?? 10);
+    const candidates = identify(await ctx.backend.index(on), a, a.limit ?? 10);
     const bySignature = candidates.some((c) => c.matched.some((m) => m.startsWith("signature")));
     const tied = candidates.filter((c) => Math.floor(c.score) === Math.floor(candidates[0]?.score ?? -1)).length;
     return {
@@ -124,14 +124,14 @@ const lookupFormat: ToolDef = {
     wikidata: z.string().max(40).optional().describe("Wikidata QID, e.g. Q178051"),
     mime: z.string().max(200).optional(),
   },
-  run(ctx, a) {
+  async run(ctx, a) {
     const on = ctx.today ?? today();
     const b = ctx.backend;
     let matches: FormatRecord[] = [];
-    if (a.id) matches = [b.get(a.id)].filter((x): x is FormatRecord => !!x);
-    else if (a.puid) matches = b.records().filter((r) => r.identifiers?.puid?.includes(a.puid.trim()));
-    else if (a.wikidata) matches = b.records().filter((r) => r.identifiers?.wikidata?.includes(a.wikidata.trim().toUpperCase()));
-    else if (a.mime) matches = b.records().filter((r) => r.identifiers?.mime?.includes(a.mime.trim().toLowerCase()));
+    if (a.id) matches = [await b.get(a.id)].filter((x): x is FormatRecord => !!x);
+    else if (a.puid) matches = (await b.records()).filter((r) => r.identifiers?.puid?.includes(a.puid.trim()));
+    else if (a.wikidata) matches = (await b.records()).filter((r) => r.identifiers?.wikidata?.includes(a.wikidata.trim().toUpperCase()));
+    else if (a.mime) matches = (await b.records()).filter((r) => r.identifiers?.mime?.includes(a.mime.trim().toLowerCase()));
     else return fail("Give one of id, puid, wikidata or mime.");
     if (!matches.length) return { ok: true, found: false, note: "Nothing known under this identifier. Try search_formats or identify_file." };
     // A version holds one PUID, its family several: the most specific record first.
@@ -140,7 +140,7 @@ const lookupFormat: ToolDef = {
     return {
       ok: true,
       found: true,
-      ...present(b, best, on),
+      ...(await present(b, (await b.get(best.id)) ?? best, on)),
       ...(others.length ? { other_matches: others.slice(0, 20).map((r) => ({ id: r.id, name: r.name, version: r.version })) } : {}),
     };
   },
@@ -156,8 +156,8 @@ const searchFormats: ToolDef = {
     status: en(STATUSES).optional().describe("unknown, in-progress, partial, readable (open code reads it), writable (open code writes it)"),
     limit: z.number().int().min(1).max(100).optional(),
   },
-  run(ctx, a) {
-    const hits = search(ctx.backend.index(ctx.today ?? today()), a.query, { category: a.category, status: a.status as Status | undefined, limit: a.limit ?? 20 });
+  async run(ctx, a) {
+    const hits = search(await ctx.backend.index(ctx.today ?? today()), a.query, { category: a.category, status: a.status as Status | undefined, limit: a.limit ?? 20 });
     return {
       ok: true,
       count: hits.length,
@@ -169,12 +169,12 @@ const searchFormats: ToolDef = {
   },
 };
 
-/** A format given as an id, or as an extension / file name (the best candidate for it). */
-function resolveFormat(backend: Backend, s: string, on: string): FormatRecord | null {
-  const direct = backend.get(s.trim());
-  if (direct) return direct;
-  const [best] = identify(backend.index(on), { extension: s }, 1);
-  return best ? backend.get(best.id) : null;
+/** A format given as an id, or every format an extension / file name may mean (most handled first). */
+async function resolveFormats(backend: Backend, s: string, on: string): Promise<FormatRecord[]> {
+  const direct = await backend.get(s.trim());
+  if (direct) return [direct];
+  const records = new Map((await backend.records()).map((r) => [r.id, r]));
+  return formatsForExtension(await backend.index(on), s).map((e) => records.get(e.id)!).filter(Boolean);
 }
 
 const findConversion: ToolDef = {
@@ -188,30 +188,37 @@ const findConversion: ToolDef = {
     to: z.string().max(200).optional().describe("Target format id, extension or file name"),
     max_steps: z.number().int().min(1).max(4).optional().describe("Longest chain (default 3)"),
   },
-  run(ctx, a) {
+  async run(ctx, a) {
     const on = ctx.today ?? today();
     const b = ctx.backend;
-    const src = resolveFormat(b, a.from, on);
-    if (!src) return fail(`Unknown source format "${a.from}". Try identify_file or search_formats.`);
+    const names = new Map((await b.records()).map((r) => [r.id, r]));
+    const srcs = await resolveFormats(b, a.from, on);
+    if (!srcs.length) return fail(`Unknown source format "${a.from}". Try identify_file or search_formats.`);
+    // Without a target, the direct conversions of the first candidate that has any.
+    const src = srcs.find((r) => r.conversions?.length) ?? srcs[0];
     const from = { id: src.id, name: src.name, ...(src.version ? { version: src.version } : {}) };
     if (!a.to) {
       const direct = [...(src.conversions ?? [])].sort((x, y) => ["lossless", "partial", "lossy"].indexOf(x.fidelity) - ["lossless", "partial", "lossy"].indexOf(y.fidelity));
       return {
         ok: true, from, count: direct.length,
-        conversions: direct.map((c) => ({ ...c, to_name: b.get(c.to)?.name })),
+        conversions: direct.map((c) => ({ ...c, to_name: names.get(c.to)?.name })),
         note: direct.length ? undefined : "No conversion recorded from this format. lookup_format lists the software that reads it; one of them may export it.",
       };
     }
-    const dst = resolveFormat(b, a.to, on);
-    if (!dst) return fail(`Unknown target format "${a.to}". Try search_formats.`);
-    if (dst.id === src.id) return fail("Source and target are the same format.");
-    const paths = conversionPaths(b.records(), src.id, dst.id, { maxSteps: a.max_steps ?? 3 });
+    const dsts = await resolveFormats(b, a.to, on);
+    if (!dsts.length) return fail(`Unknown target format "${a.to}". Try search_formats.`);
+    if (srcs.length === 1 && dsts.length === 1 && srcs[0].id === dsts[0].id) return fail("Source and target are the same format.");
+    const paths = conversionPathsBetween(await b.records(), srcs.map((r) => r.id), dsts.map((r) => r.id), { maxSteps: a.max_steps ?? 3 });
+    const pick = (id: string | undefined, list: FormatRecord[]) => names.get(id ?? "") ?? list[0];
+    const s0 = pick(paths[0]?.steps[0].from, srcs), d0 = pick(paths[0]?.steps.at(-1)?.to, dsts);
     return {
-      ok: true, from, to: { id: dst.id, name: dst.name, ...(dst.version ? { version: dst.version } : {}) },
+      ok: true,
+      from: { id: s0.id, name: s0.name, ...(s0.version ? { version: s0.version } : {}) },
+      to: { id: d0.id, name: d0.name, ...(d0.version ? { version: d0.version } : {}) },
       found: paths.length > 0,
-      paths: paths.map((p) => ({ fidelity: p.fidelity, steps: p.steps.map((st) => ({ ...st, to_name: b.get(st.to)?.name })) })),
+      paths: paths.map((p) => ({ fidelity: p.fidelity, steps: p.steps.map((st) => ({ ...st, to_name: names.get(st.to)?.name })) })),
       note: paths.length
-        ? (extensionOf(a.from) === a.from.toLowerCase() || extensionOf(a.to) === a.to.toLowerCase() ? "Formats given as extensions were mapped to their most common format; pass ids to be exact." : undefined)
+        ? (srcs.length > 1 || dsts.length > 1 ? "An extension can mean several formats: paths were searched from and to each of them; pass ids to be exact." : undefined)
         : "No chain of recorded conversions links them. lookup_format on both lists the software that reads or writes each.",
     };
   },
@@ -222,8 +229,8 @@ const listSources: ToolDef = {
   title: "List sources",
   description: "Sources aggregated in OpenFormatDB, with record counts, licences and snapshot dates.",
   shape: {},
-  run(ctx) {
-    return { ok: true, ...ctx.backend.sources() };
+  async run(ctx) {
+    return { ok: true, ...(await ctx.backend.sources()) };
   },
 };
 

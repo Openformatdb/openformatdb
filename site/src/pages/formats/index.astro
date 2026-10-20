@@ -1,0 +1,44 @@
+---
+import Base from "../../layouts/Base.astro";
+import FormatRow from "../../components/FormatRow.astro";
+import { db, facet } from "../../lib/data.ts";
+import { STATUS_LABEL } from "../../lib/config.ts";
+import { STATUSES } from "@openformatdb/core";
+
+const PAGE = 50;
+const { index } = db();
+// Without JavaScript the page lists the best-known formats first.
+const first = [...index].sort((a, b) => b.open_tools - a.open_tools || a.id.localeCompare(b.id)).slice(0, PAGE);
+const statusCounts = new Map(facet("status"));
+---
+<Base title="Formats" description="Search every file format known to OpenFormatDB by name, extension, MIME type, PRONOM id or Wikidata id.">
+  <h1>Formats</h1>
+  <p class="lede">Search by name, extension, MIME type, PRONOM id (<code>fmt/13</code>) or Wikidata id (<code>Q178051</code>).</p>
+  <section id="directory">
+    <form class="filters" role="search" action="/formats/" method="get">
+      <div>
+        <label for="q">Search</label>
+        <input id="q" name="q" type="search" placeholder="e.g. png, wordperfect, audio/flac" autocomplete="off" spellcheck="false" />
+      </div>
+      <div>
+        <label for="category">Category</label>
+        <select id="category" name="category">
+          <option value="">All categories</option>
+          {facet("category").map(([c, n]) => <option value={c}>{c} ({n.toLocaleString("en")})</option>)}
+        </select>
+      </div>
+      <div>
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          <option value="">Any status</option>
+          {STATUSES.map((s) => <option value={s}>{STATUS_LABEL[s]} ({(statusCounts.get(s) ?? 0).toLocaleString("en")})</option>)}
+        </select>
+      </div>
+    </form>
+    <noscript><p class="muted small">Search needs JavaScript. Without it, the full list is in <a href="/api/index.json">/api/index.json</a>.</p></noscript>
+    <div class="results-bar"><p id="count" class="muted small" aria-live="polite">{index.length.toLocaleString("en")} formats; the best known first.</p></div>
+    <ul id="results" class="list-plain results">{first.map((e) => <FormatRow e={e} />)}</ul>
+    <nav id="pager" class="pager" aria-label="Pages"></nav>
+  </section>
+  <script src="../../scripts/directory.ts"></script>
+</Base>

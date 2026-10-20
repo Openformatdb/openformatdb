@@ -20,7 +20,9 @@ no keys, no copies of paywalled standards).
 
 ## Run it
 
-From a checkout of the repository:
+Without a checkout it reads the static API of [openformatdb.org](https://openformatdb.org)
+(read-only; `OFDB_API_URL` points elsewhere). From a checkout of the repository it reads the
+data files and can write:
 
 ```sh
 npm install
@@ -30,5 +32,4 @@ OFDB_REPO=/path/to/checkout npm run mcp
 
 Claude Code: `claude mcp add openformatdb -- node /path/to/openformatdb/packages/mcp/src/server.ts`
 
-Needs Node 22.18 or later (TypeScript sources run directly). An npm package with the data
-bundled, and a remote backend reading the site's static API, are planned.
+Needs Node 22.18 or later (TypeScript sources run directly).

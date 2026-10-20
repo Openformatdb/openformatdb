@@ -1,0 +1,16 @@
+---
+import StatusBadge from "./StatusBadge.astro";
+import { formatUrl } from "../lib/data.ts";
+import { displayName } from "../lib/config.ts";
+import type { IndexEntry } from "@openformatdb/core";
+interface Props { e: IndexEntry }
+const { e } = Astro.props;
+const exts = (e.identifiers.extensions ?? []).slice(0, 5).map((x) => `.${x}`).join(" ");
+---
+<li>
+  <div class="dev-row">
+    <a class="name" href={formatUrl(e.id)}>{displayName(e.name, e.version)}</a>
+    <StatusBadge status={e.status} />
+    <span class="meta">{e.category}{exts ? ` · ${exts}` : ""}{e.open_tools ? ` · ${e.open_tools} open tool${e.open_tools === 1 ? "" : "s"}` : ""}</span>
+  </div>
+</li>

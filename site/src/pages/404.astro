@@ -1,0 +1,12 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Not found">
+  <h1>Not found</h1>
+  <p class="lede">This page does not exist. Looking for a format?</p>
+  <form class="search-big" role="search" action="/formats/" method="get">
+    <label for="nf-q" class="sr-only">Search formats</label>
+    <input id="nf-q" name="q" type="search" placeholder="Search formats…" />
+    <button class="btn primary" type="submit">Search</button>
+  </form>
+</Base>

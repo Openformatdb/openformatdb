@@ -1,0 +1,16 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Identify a file" description="Find out what format a file is from its first bytes, in your browser: nothing is uploaded.">
+  <h1>Identify a file</h1>
+  <p class="lede">Choose or drop a file. Its first bytes are read <strong>in your browser</strong> and compared with the signatures of every known format; nothing is uploaded.</p>
+  <section id="identify" class="card">
+    <label for="file" class="btn primary">Choose a file</label>
+    <input id="file" type="file" class="sr-only" />
+    <p class="small muted">…or drop it anywhere on this box.</p>
+    <p id="status" class="small" aria-live="polite"></p>
+    <ol id="candidates" class="list-plain"></ol>
+  </section>
+  <p class="small muted">A signature match is reliable; a match on the extension alone is a guess, since many formats share one (<code>.dat</code>, <code>.bin</code>). Signatures here are fixed prefixes, so related formats (PNG and APNG) can tie: the format page tells them apart.</p>
+  <script src="../scripts/identify.ts"></script>
+</Base>

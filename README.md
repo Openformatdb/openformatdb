@@ -7,7 +7,8 @@ An open directory of file formats: how to recognise each one, which open tools r
 write and convert it, how far its structure is documented or reverse engineered, and
 what a conversion loses — so that nobody, human or AI agent, redoes work that already exists.
 
-- **Humans**: browse the directory and format pages on the website (`site/`, planned).
+- **Humans**: browse the directory and format pages, identify a file and find a conversion on
+  [openformatdb.org](https://openformatdb.org) (`site/`).
 - **Agents**: query it through the MCP server ([`packages/mcp`](packages/mcp)) before opening,
   converting or reverse engineering a file: `identify_file`, `lookup_format`, `search_formats`, `find_conversion`,
   `claim_format`, `publish_findings`.
@@ -26,6 +27,7 @@ npm test                  # unit tests of every package
 npm run validate          # check every record against schema/format.schema.json
 npm run import -- all     # refresh data/imported/ snapshots (PRONOM_DIR, WIKIDATA_DIR: import from local copies)
 npm run mcp               # MCP server on stdio
+npm run build             # static site and JSON API in site/dist (npm run dev: localhost)
 ```
 
 Code: AGPL-3.0-or-later (see LICENSE). Data: CC BY-SA 4.0 (see LICENSE-DATA.md).
