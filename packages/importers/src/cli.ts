@@ -1,6 +1,6 @@
 // npm run import -- <source>|all
 // Fetch each source, validate and dedupe its records, write data/imported/<source>.json.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT } from "@openformatdb/core";
 import { SOURCES, finalize, snapshot, stringifySnapshot } from "./index.ts";
@@ -20,8 +20,11 @@ for (const src of SOURCES.filter((s) => arg === "all" || s.source === arg)) {
   const started = new Date();
   try {
     const f = finalize(await src.fetch());
-    writeFileSync(join(outDir, `${src.source}.json`), stringifySnapshot(snapshot(src, f.records, started)));
-    console.log(`${src.source}: ${f.input} fetched, ${f.invalid} invalid dropped, ${f.merged} merged duplicates, ${f.records.length} written`);
+    const file = join(outDir, `${src.source}.json`);
+    // Same records as the current snapshot: keep it, so a refresh with no news changes no file.
+    const unchanged = existsSync(file) && JSON.stringify(JSON.parse(readFileSync(file, "utf8")).records) === JSON.stringify(f.records);
+    if (!unchanged) writeFileSync(file, stringifySnapshot(snapshot(src, f.records, started)));
+    console.log(`${src.source}: ${f.input} fetched, ${f.invalid} invalid dropped, ${f.merged} merged duplicates, ${f.records.length} ${unchanged ? "unchanged" : "written"}`);
     for (const e of f.errors) console.log(`  invalid ${e}`);
   } catch (e) {
     failed++;

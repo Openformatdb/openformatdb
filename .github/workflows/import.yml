@@ -1,0 +1,41 @@
+name: Import sources
+# Refresh data/imported/ from every importer (packages/importers) and commit the snapshots
+# that changed. A failing source keeps its previous snapshot; the run is then marked failed.
+on:
+  schedule:
+    - cron: "23 4 * * 1" # Mondays
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Source to import (pronom, wikidata…) or all"
+        default: all
+permissions:
+  contents: write
+concurrency:
+  group: import
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - id: import
+        run: npm run import -- "$SOURCE" || echo "failed=true" >> "$GITHUB_OUTPUT"
+        env:
+          SOURCE: ${{ inputs.source || 'all' }}
+          GITHUB_TOKEN: ${{ github.token }} # GitHub tree listing (PRONOM)
+      - run: npm run validate
+      - name: Commit changed snapshots
+        run: |
+          git add data/imported
+          if git diff --cached --quiet; then echo "No change"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Import: refresh $(git diff --cached --name-only | xargs -n1 basename | sed 's/\.json$//' | paste -sd, -)"
+          git push
+      - if: steps.import.outputs.failed == 'true'
+        run: |
+          echo "At least one source failed, see the import step"
+          exit 1
