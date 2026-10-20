@@ -9,6 +9,7 @@ reads, writes and converts it, and how far the format is documented.
 | `identify_file(magic_hex?, extension?, mime?)` | candidate formats, ranked: signature, then MIME type, then extension. The agent reads the first bytes itself (`xxd -p -l 64 file`); the file never leaves the machine |
 | `lookup_format(id \| puid \| wikidata \| mime)` | full record: identifiers, software (open source first, inherited from the family when marked `via`), grammars, specification, family and versions, live claims, advice |
 | `search_formats(query, category?, status?)` | ranked matches by name, alias, extension, MIME, PUID or QID |
+| `find_conversion(from, to?)` | cheapest chains of open tools from one format to another (lossless first), each step with its command and what is lost; formats as ids or extensions |
 | `list_sources()` | aggregated sources with counts, licences and snapshot dates |
 | `claim_format(id \| name+category, who, contact, scope, days?)` | says you are documenting a format (up to 90 days), so nobody duplicates the work |
 | `publish_findings(id, patch, release_claim_of?)` | merges structure, grammars, tools, conversions, spec, identifiers, verification; status only moves forward |

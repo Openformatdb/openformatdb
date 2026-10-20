@@ -9,10 +9,11 @@ what a conversion loses — so that nobody, human or AI agent, redoes work that 
 
 - **Humans**: browse the directory and format pages on the website (`site/`, planned).
 - **Agents**: query it through the MCP server ([`packages/mcp`](packages/mcp)) before opening,
-  converting or reverse engineering a file: `identify_file`, `lookup_format`, `search_formats`.
+  converting or reverse engineering a file: `identify_file`, `lookup_format`, `search_formats`, `find_conversion`,
+  `claim_format`, `publish_findings`.
 - **Existing sources** (PRONOM, Wikidata, Archive Team's File Formats Wiki, Library of
   Congress FDD, Kaitai Struct, MIME databases, converter format lists…) are aggregated by
-  importers (`packages/importers`; PRONOM and Wikidata today), with a link back to each source.
+  importers (`packages/importers`; PRONOM, Wikidata and converters (FFmpeg, ImageMagick, Pandoc, LibreOffice) today), with a link back to each source.
 
 Sister project of [OpenDeviceDB](https://opendevicedb.org).
 

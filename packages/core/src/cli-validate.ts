@@ -1,5 +1,5 @@
 // Validate every curated record and snapshot; exit 1 on any error.
-import { loadCurated, loadSnapshots, validate, curatedPath, REPO_ROOT } from "./index.ts";
+import { loadAll, loadCurated, loadSnapshots, validate, curatedPath, REPO_ROOT } from "./index.ts";
 import { relative } from "node:path";
 
 let errors = 0;
@@ -22,5 +22,9 @@ for (const snap of loadSnapshots()) {
   }
   imported += snap.records.length;
 }
+// Conversion targets name records by id; ids move when a source is refreshed alone.
+const ids = new Set(loadAll().map((r) => r.id));
+const dangling = loadSnapshots().flatMap((s) => s.records.flatMap((r) => (r.conversions ?? []).filter((c) => !ids.has(c.to)).map((c) => `${s.source} ${r.id} → ${c.to}`)));
+if (dangling.length) console.warn(`warning: ${dangling.length} conversion(s) point to unknown ids (re-run the converters import), e.g. ${dangling.slice(0, 3).join(", ")}`);
 console.log(`${curated.length} curated, ${imported} imported, ${errors} error(s)`);
 process.exit(errors ? 1 : 0);

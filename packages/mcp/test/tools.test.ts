@@ -53,7 +53,7 @@ test("search_formats and list_sources", () => withRepo((ctx) => {
   assert.equal(s.count, 2);
   assert.equal((tool("search_formats").run(ctx, { query: "jpeg", status: "writable" }) as any).count, 0);
   const src: any = tool("list_sources").run(ctx, {});
-  assert.deepEqual(src.sources.map((x: any) => [x.source, x.records]), [["pronom", 3], ["wikidata", 2]]);
+  assert.deepEqual(src.sources.map((x: any) => [x.source, x.records]), [["converters", 1], ["pronom", 3], ["wikidata", 2]]);
   assert.equal(src.total, 4);
 }));
 
@@ -105,4 +105,18 @@ test("publish_findings: merges, forward-only status, releases the claim, rejects
   // Inherited tools never get written into curated files.
   tool("publish_findings").run(ctx, { id: "portable-network-graphics-1-2", patch: { summary: "PNG 1.2." } });
   assert.doesNotMatch(readFileSync(join((ctx.backend as any).root, "data/formats/portable-network-graphics-1-2.yaml"), "utf8"), /via:/);
+}));
+
+test("find_conversion: by extension or id, inherited from the family, direct list without target", () => withRepo((ctx) => {
+  const r: any = tool("find_conversion").run(ctx, { from: "photo.png", to: "jpg" });
+  assert.equal(r.ok, true, r.error);
+  assert.equal(r.found, true);
+  assert.equal(r.paths[0].steps[0].tool, "ImageMagick");
+  assert.equal(r.paths[0].fidelity, "lossy");
+  const v: any = tool("find_conversion").run(ctx, { from: "portable-network-graphics-1-2", to: "jpeg-file-interchange-format-1-01" });
+  assert.equal(v.paths[0].steps[0].via, "portable-network-graphics");
+  const direct: any = tool("find_conversion").run(ctx, { from: "portable-network-graphics" });
+  assert.equal(direct.count, 1);
+  assert.equal((tool("find_conversion").run(ctx, { from: "jpg", to: "png" }) as any).found, false);
+  assert.equal(tool("find_conversion").run(ctx, { from: "nope-zzz" }).ok, false);
 }));

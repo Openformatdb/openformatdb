@@ -26,6 +26,13 @@ export const WIKIDATA: FormatRecord[] = [
     identifiers: { extensions: ["png"], puid: ["fmt/13"], wikidata: ["Q27229642"] }, provenance: { sources: ["wikidata"] }, updated: "2026-10-20" },
 ];
 
+// Conversions as the converters importer writes them: on the family, reached by versions through inheritance.
+export const CONVERTERS: FormatRecord[] = [
+  { id: "portable-network-graphics", name: "Portable Network Graphics", category: "image", status: "writable",
+    conversions: [{ to: "jpeg-file-interchange-format-1-01", tool: "ImageMagick", command: "convert in.png out.jpg", fidelity: "lossy", losses: "Lossy compression." }],
+    provenance: { sources: ["converters"] }, updated: "2026-10-20" },
+];
+
 export function makeRepo(): string {
   const root = mkdtempSync(join(tmpdir(), "ofdb-mcp-test-"));
   cpSync(join(REPO_ROOT, "schema"), join(root, "schema"), { recursive: true });
@@ -34,5 +41,6 @@ export function makeRepo(): string {
     writeFileSync(join(root, `data/imported/${source}.json`), JSON.stringify({ source, name, url: `https://example.org/${source}`, license, fetched_at: "2026-10-20T00:00:00Z", records }));
   snap("pronom", "PRONOM", "MIT", PRONOM);
   snap("wikidata", "Wikidata", "CC0-1.0", WIKIDATA);
+  snap("converters", "Converters", "CC0-1.0", CONVERTERS);
   return root;
 }

@@ -176,7 +176,13 @@ The MCP server reads this API remotely (`OFDB_API_URL`) or the local repository
 | `list_sources()` | imported sources with record counts, licences and snapshot dates |
 
 Built in v0.1: `identify_file`, `lookup_format`, `search_formats`, `list_sources`, `claim_format`,
-`publish_findings` (writes go to `data/formats/<id>.yaml` in a local checkout). `find_conversion` comes next.
+`publish_findings` (writes go to `data/formats/<id>.yaml` in a local checkout), `find_conversion`.
+
+Conversion edges come from the `converters` importer: what FFmpeg, ImageMagick and Pandoc report
+they read and write, and a table of LibreOffice filters, mapped to records by extension within the
+tool's categories (the record most software handles wins: `.pdf` is PDF, not PDF/E). Edges go to a
+few common targets per tool, with a fidelity and what is lost. Versions inherit their family's
+conversions (`via`). `find_conversion` runs a cheapest-path search (lossless 1, partial 2, lossy 3).
 
 `identify_file` takes the first bytes as hex from the agent, which reads the file
 locally; nothing about the user's file leaves their machine beyond that prefix.

@@ -108,3 +108,20 @@ test("schema accepts a full record and rejects bad identifiers", () => {
   assert.notDeepEqual(validate({ ...png, identifiers: { puid: ["13"] } }), []);
   assert.notDeepEqual(validate({ ...png, identifiers: { magic: [{ offset: 0, hex: "89 50" }] } }), []);
 });
+
+test("conversionPaths: cheapest chain first, family of the target counts, no cycles", async () => {
+  const { conversionPaths } = await import("../src/index.ts");
+  const recs = [
+    r({ id: "wpd", conversions: [{ to: "odt", tool: "LibreOffice", fidelity: "partial" }, { to: "txt", tool: "x", fidelity: "lossy" }] }),
+    r({ id: "odt", conversions: [{ to: "md", tool: "Pandoc", fidelity: "partial" }, { to: "wpd", tool: "y", fidelity: "lossless" }] }),
+    r({ id: "txt", conversions: [{ to: "md", tool: "z", fidelity: "partial" }] }),
+    r({ id: "md" }), r({ id: "md-1", family: "md" }),
+  ];
+  const paths = conversionPaths(recs, "wpd", "md");
+  assert.deepEqual(paths[0].steps.map((s) => s.tool), ["LibreOffice", "Pandoc"]); // partial + partial beats lossy + partial
+  assert.equal(paths[1].fidelity, "lossy");
+  assert.equal(paths.length, 2);
+  assert.equal(conversionPaths(recs, "wpd", "md-1")[0].steps.at(-1)!.to, "md"); // the family is fine
+  assert.deepEqual(conversionPaths(recs, "md", "wpd"), []);
+  assert.equal(conversionPaths(recs, "wpd", "md", { maxSteps: 1 }).length, 0);
+});

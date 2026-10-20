@@ -227,21 +227,22 @@ export function linkFamilies(records: FormatRecord[]): FormatRecord[] {
 }
 
 /**
- * Copy the tools and parsers of a record's families (up the chain) into it, marked with
+ * Copy the tools, parsers and conversions of a record's families (up the chain) into it, marked with
  * `via: <family id>`, so a version page shows the software known to handle the format.
  * Status is not inherited: a tool that reads PNG is not proof it reads every version.
  */
 export function inheritFromFamily(records: FormatRecord[]): FormatRecord[] {
   const byId = new Map(records.map((r) => [r.id, r]));
   return records.map((r) => {
-    const tools = [...(r.tools ?? [])], parsers = [...(r.parsers ?? [])];
+    const tools = [...(r.tools ?? [])], parsers = [...(r.parsers ?? [])], conversions = [...(r.conversions ?? [])];
     const seen = new Set([r.id]);
     for (let f = r.family ? byId.get(r.family) : undefined; f && !seen.has(f.id); f = f.family ? byId.get(f.family) : undefined) {
       seen.add(f.id);
       for (const t of f.tools ?? []) if (!t.via && !tools.some((x) => x.url === t.url)) tools.push({ ...t, via: f.id });
       for (const p of f.parsers ?? []) if (!p.via && !parsers.some((x) => x.url === p.url)) parsers.push({ ...p, via: f.id });
+      for (const c of f.conversions ?? []) if (!c.via && c.to !== r.id && !conversions.some((x) => x.to === c.to && x.tool === c.tool)) conversions.push({ ...c, via: f.id });
     }
-    return seen.size > 1 ? { ...r, tools, parsers } : r;
+    return seen.size > 1 ? { ...r, tools, parsers, conversions } : r;
   });
 }
 

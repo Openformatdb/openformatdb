@@ -19,7 +19,7 @@ export interface Spec { availability: "open-standard" | "paywalled-standard" | "
 export interface StructurePart { name: string; status: "unknown" | "partial" | "documented"; confidence?: "low" | "medium" | "high"; spec?: string; notes?: string }
 export interface Parser { engine: string; url: string; license?: string; coverage?: "full" | "partial" | "header-only"; via?: string }
 export interface Tool { name: string; url: string; license?: string; open_source?: boolean; reads?: boolean; writes?: boolean; platforms?: string[]; notes?: string; via?: string }
-export interface Conversion { to: string; tool: string; command?: string; fidelity: "lossless" | "lossy" | "partial"; losses?: string; url?: string }
+export interface Conversion { to: string; tool: string; command?: string; fidelity: "lossless" | "lossy" | "partial"; losses?: string; url?: string; via?: string }
 export interface Sample { url: string; license?: string; notes?: string }
 export interface Project { name: string; url: string; kind: string; license?: string; official?: boolean }
 export interface Claim { who: string; contact: string; scope: string; since: string; expires: string; agent?: string }
@@ -254,4 +254,48 @@ export function identify<T extends Pick<IndexEntry, "id" | "name" | "version" | 
   }
   out.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
   return out.slice(0, limit);
+}
+
+// ---------- conversion paths ----------
+
+export interface Step { from: string; to: string; tool: string; command?: string; fidelity: Conversion["fidelity"]; losses?: string; via?: string }
+export interface ConversionPath { steps: Step[]; fidelity: Conversion["fidelity"]; cost: number }
+
+const COST: Record<Conversion["fidelity"], number> = { lossless: 1, partial: 2, lossy: 3 };
+const WORST: Conversion["fidelity"][] = ["lossless", "partial", "lossy"];
+
+/**
+ * Cheapest conversion chains from one format to another (Dijkstra; a lossless step costs 1,
+ * partial 2, lossy 3), at most `maxSteps` steps. Reaching the target's family counts: a
+ * converter that writes "PDF" is a way to get a PDF 1.7 file. Up to `limit` paths, each
+ * through a different last tool or route.
+ */
+export function conversionPaths(records: Pick<FormatRecord, "id" | "family" | "conversions">[], from: string, to: string, { maxSteps = 3, limit = 3 } = {}): ConversionPath[] {
+  const byId = new Map(records.map((r) => [r.id, r]));
+  const target = byId.get(to);
+  const goals = new Set([to, ...(target?.family ? [target.family] : [])]);
+  const found: ConversionPath[] = [];
+  // Small graph, small depth: a priority list is enough.
+  let queue: { at: string; steps: Step[]; cost: number }[] = [{ at: from, steps: [], cost: 0 }];
+  const best = new Map<string, number>();
+  while (queue.length && found.length < limit) {
+    queue.sort((a, b) => a.cost - b.cost);
+    const cur = queue.shift()!;
+    if (cur.steps.length && goals.has(cur.at)) {
+      const fidelity = WORST[Math.max(...cur.steps.map((s) => WORST.indexOf(s.fidelity)))];
+      const route = cur.steps.map((s) => `${s.tool}:${s.to}`).join(">");
+      if (!found.some((p) => p.steps.map((s) => `${s.tool}:${s.to}`).join(">") === route)) found.push({ steps: cur.steps, fidelity, cost: cur.cost });
+      continue;
+    }
+    if (cur.steps.length >= maxSteps) continue;
+    const seenHere = (best.get(cur.at) ?? 0) + 1;
+    if (seenHere > limit) continue; // enough routes through this node already
+    best.set(cur.at, seenHere);
+    for (const c of byId.get(cur.at)?.conversions ?? []) {
+      if (c.to === from || cur.steps.some((s) => s.from === c.to)) continue;
+      const step: Step = { from: cur.at, to: c.to, tool: c.tool, ...(c.command ? { command: c.command } : {}), fidelity: c.fidelity, ...(c.losses ? { losses: c.losses } : {}), ...(c.via ? { via: c.via } : {}) };
+      queue.push({ at: c.to, steps: [...cur.steps, step], cost: cur.cost + COST[c.fidelity] + 0.1 });
+    }
+  }
+  return found;
 }

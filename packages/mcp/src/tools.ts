@@ -2,7 +2,7 @@
 // Pure functions over a Backend; server.ts exposes them over MCP.
 import { z } from "zod";
 import {
-  SCHEMA, STATUSES, identify, search, liveClaims, effectiveStatus, today,
+  SCHEMA, STATUSES, identify, search, liveClaims, effectiveStatus, today, conversionPaths, extensionOf,
   type FormatRecord, type Status, type Tool,
 } from "@openformatdb/core";
 import type { Backend } from "./backend.ts";
@@ -169,6 +169,54 @@ const searchFormats: ToolDef = {
   },
 };
 
+/** A format given as an id, or as an extension / file name (the best candidate for it). */
+function resolveFormat(backend: Backend, s: string, on: string): FormatRecord | null {
+  const direct = backend.get(s.trim());
+  if (direct) return direct;
+  const [best] = identify(backend.index(on), { extension: s }, 1);
+  return best ? backend.get(best.id) : null;
+}
+
+const findConversion: ToolDef = {
+  name: "find_conversion",
+  title: "Find a conversion",
+  description:
+    "How to convert a file from one format to another with open tools: the cheapest chains (lossless first), each step with " +
+    "its tool, command and what is lost. Formats as ids or extensions (\"docx\", \"report.wpd\"). Without `to`, lists the direct conversions.",
+  shape: {
+    from: z.string().max(200).describe("Source format id, extension or file name"),
+    to: z.string().max(200).optional().describe("Target format id, extension or file name"),
+    max_steps: z.number().int().min(1).max(4).optional().describe("Longest chain (default 3)"),
+  },
+  run(ctx, a) {
+    const on = ctx.today ?? today();
+    const b = ctx.backend;
+    const src = resolveFormat(b, a.from, on);
+    if (!src) return fail(`Unknown source format "${a.from}". Try identify_file or search_formats.`);
+    const from = { id: src.id, name: src.name, ...(src.version ? { version: src.version } : {}) };
+    if (!a.to) {
+      const direct = [...(src.conversions ?? [])].sort((x, y) => ["lossless", "partial", "lossy"].indexOf(x.fidelity) - ["lossless", "partial", "lossy"].indexOf(y.fidelity));
+      return {
+        ok: true, from, count: direct.length,
+        conversions: direct.map((c) => ({ ...c, to_name: b.get(c.to)?.name })),
+        note: direct.length ? undefined : "No conversion recorded from this format. lookup_format lists the software that reads it; one of them may export it.",
+      };
+    }
+    const dst = resolveFormat(b, a.to, on);
+    if (!dst) return fail(`Unknown target format "${a.to}". Try search_formats.`);
+    if (dst.id === src.id) return fail("Source and target are the same format.");
+    const paths = conversionPaths(b.records(), src.id, dst.id, { maxSteps: a.max_steps ?? 3 });
+    return {
+      ok: true, from, to: { id: dst.id, name: dst.name, ...(dst.version ? { version: dst.version } : {}) },
+      found: paths.length > 0,
+      paths: paths.map((p) => ({ fidelity: p.fidelity, steps: p.steps.map((st) => ({ ...st, to_name: b.get(st.to)?.name })) })),
+      note: paths.length
+        ? (extensionOf(a.from) === a.from.toLowerCase() || extensionOf(a.to) === a.to.toLowerCase() ? "Formats given as extensions were mapped to their most common format; pass ids to be exact." : undefined)
+        : "No chain of recorded conversions links them. lookup_format on both lists the software that reads or writes each.",
+    };
+  },
+};
+
 const listSources: ToolDef = {
   name: "list_sources",
   title: "List sources",
@@ -179,6 +227,6 @@ const listSources: ToolDef = {
   },
 };
 
-export const TOOLS: ToolDef[] = [identifyFile, lookupFormat, searchFormats, listSources, claimFormat, publishFindings];
+export const TOOLS: ToolDef[] = [identifyFile, lookupFormat, searchFormats, findConversion, listSources, claimFormat, publishFindings];
 
-export const READ_ONLY = new Set(["identify_file", "lookup_format", "search_formats", "list_sources"]);
+export const READ_ONLY = new Set(["identify_file", "lookup_format", "search_formats", "find_conversion", "list_sources"]);

@@ -120,7 +120,8 @@
           "command": { "type": "string", "description": "e.g. ffmpeg -i in.wav out.flac" },
           "fidelity": { "enum": ["lossless", "lossy", "partial"] },
           "losses": { "type": "string", "description": "What does not survive the conversion" },
-          "url": { "type": "string", "format": "uri" }
+          "url": { "type": "string", "format": "uri" },
+          "via": { "$ref": "#/$defs/formatId", "description": "Set on load: inherited from this family record, not stated for this version" }
         }
       }
     },
