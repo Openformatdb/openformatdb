@@ -17,8 +17,8 @@ export interface Identifiers {
 }
 export interface Spec { availability: "open-standard" | "paywalled-standard" | "vendor-published" | "reverse-engineered" | "none"; url?: string; standard?: string }
 export interface StructurePart { name: string; status: "unknown" | "partial" | "documented"; confidence?: "low" | "medium" | "high"; spec?: string; notes?: string }
-export interface Parser { engine: string; url: string; license?: string; coverage?: "full" | "partial" | "header-only" }
-export interface Tool { name: string; url: string; license?: string; open_source?: boolean; reads?: boolean; writes?: boolean; platforms?: string[]; notes?: string }
+export interface Parser { engine: string; url: string; license?: string; coverage?: "full" | "partial" | "header-only"; via?: string }
+export interface Tool { name: string; url: string; license?: string; open_source?: boolean; reads?: boolean; writes?: boolean; platforms?: string[]; notes?: string; via?: string }
 export interface Conversion { to: string; tool: string; command?: string; fidelity: "lossless" | "lossy" | "partial"; losses?: string; url?: string }
 export interface Sample { url: string; license?: string; notes?: string }
 export interface Project { name: string; url: string; kind: string; license?: string; official?: boolean }

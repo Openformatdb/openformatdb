@@ -84,7 +84,8 @@
           "engine": { "enum": ["kaitai", "imhex", "fq", "010-editor", "hachoir", "polyfile", "dfdl", "construct", "spicy", "other"] },
           "url": { "type": "string", "format": "uri" },
           "license": { "type": "string" },
-          "coverage": { "enum": ["full", "partial", "header-only"] }
+          "coverage": { "enum": ["full", "partial", "header-only"] },
+          "via": { "$ref": "#/$defs/formatId", "description": "Set on load: inherited from this family record, not stated for this version" }
         }
       }
     },
@@ -102,7 +103,8 @@
           "reads": { "type": "boolean", "default": true },
           "writes": { "type": "boolean", "default": false },
           "platforms": { "type": "array", "items": { "enum": ["linux", "macos", "windows", "web", "android", "ios", "other"] } },
-          "notes": { "type": "string" }
+          "notes": { "type": "string" },
+          "via": { "$ref": "#/$defs/formatId", "description": "Set on load: inherited from this family record, not stated for this version" }
         }
       }
     },

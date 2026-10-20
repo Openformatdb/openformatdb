@@ -11,7 +11,7 @@ import { clean, fetchJson, type Source } from "../lib.ts";
 const ENDPOINT = "https://query.wikidata.org/sparql";
 
 export const FORMATS_QUERY = `
-SELECT DISTINCT ?uri ?uriLabel ?desc ?puid ?extension ?mimetype ?ffw ?lcfdd ?sig ?encodingLabel ?relativityLabel ?offset
+SELECT DISTINCT ?uri ?uriLabel ?desc ?parent ?puid ?extension ?mimetype ?ffw ?lcfdd ?sig ?encodingLabel ?relativityLabel ?offset
 WHERE {
   { ?uri wdt:P31/wdt:P279* wd:Q235557 } UNION { ?uri wdt:P31/wdt:P279* wd:Q26085352 }.
   FILTER EXISTS { ?uri wdt:P2748|wdt:P1195|wdt:P1163|wdt:P3266 [] }.
@@ -19,6 +19,7 @@ WHERE {
   OPTIONAL { ?uri wdt:P1195 ?extension. }
   OPTIONAL { ?uri wdt:P1163 ?mimetype. }
   OPTIONAL { ?uri wdt:P3381 ?ffw. }
+  OPTIONAL { ?uri wdt:P279|wdt:P361 ?parent. }  # subclass of / part of: a version points to its format
   OPTIONAL { ?uri wdt:P3266 ?lcfdd. }
   OPTIONAL { ?uri schema:description ?desc. FILTER(LANG(?desc) = "en") }
   OPTIONAL { ?uri p:P4152 ?object.
@@ -69,7 +70,7 @@ function magic(b: Binding): Magic | null {
   return { offset, hex };
 }
 
-interface Acc { name: string; desc: string; puid: Set<string>; ext: Set<string>; mime: Set<string>; fdd: Set<string>; ffw: Set<string>; magic: Map<string, Magic> }
+interface Acc { name: string; desc: string; puid: Set<string>; ext: Set<string>; mime: Set<string>; fdd: Set<string>; ffw: Set<string>; parent: Set<string>; magic: Map<string, Magic> }
 
 /** Format query rows (one per combination of values) → one accumulator per QID. */
 export function groupFormats(rows: Binding[]): Map<string, Acc> {
@@ -78,7 +79,7 @@ export function groupFormats(rows: Binding[]): Map<string, Acc> {
     const q = qid(b.uri?.value);
     if (!q) continue;
     let a = out.get(q);
-    if (!a) out.set(q, (a = { name: val(b, "uriLabel") || q, desc: val(b, "desc"), puid: new Set(), ext: new Set(), mime: new Set(), fdd: new Set(), ffw: new Set(), magic: new Map() }));
+    if (!a) out.set(q, (a = { name: val(b, "uriLabel") || q, desc: val(b, "desc"), puid: new Set(), ext: new Set(), mime: new Set(), fdd: new Set(), ffw: new Set(), parent: new Set(), magic: new Map() }));
     const puid = val(b, "puid");
     if (/^(x-)?fmt\/[0-9]+$/.test(puid)) a.puid.add(puid);
     const ext = val(b, "extension").toLowerCase().replace(/^\./, "");
@@ -88,6 +89,8 @@ export function groupFormats(rows: Binding[]): Map<string, Acc> {
     const fdd = val(b, "lcfdd");
     if (/^fdd[0-9]+$/.test(fdd)) a.fdd.add(fdd);
     if (val(b, "ffw")) a.ffw.add(val(b, "ffw"));
+    const parent = qid(b.parent?.value);
+    if (parent && parent !== q) a.parent.add(parent);
     const m = magic(b);
     if (m) a.magic.set(`${m.offset}:${m.hex}`, m);
   }
@@ -125,20 +128,35 @@ export function groupTools(reads: Binding[], writes: Binding[]): Map<string, Too
   return out;
 }
 
+/**
+ * The family of a version item: a parent (subclass of / part of) that is itself a format
+ * here and shares an extension or MIME type with it, so genre classes ("raster graphics
+ * format") are not taken as families. Several candidates: the first by id.
+ */
+function familyOf(a: Acc, accs: Map<string, Acc>, idOf: Map<string, string>): string | undefined {
+  const shares = (p: Acc) => [...a.ext].some((e) => p.ext.has(e)) || [...a.mime].some((m) => p.mime.has(m));
+  return [...a.parent].filter((q) => accs.has(q) && shares(accs.get(q)!)).map((q) => idOf.get(q)!).sort()[0];
+}
+
 /** Records from the three query results. Ids from the label; a label shared by several items gets its QID appended. */
 export function toRecords(formats: Binding[], reads: Binding[], writes: Binding[], on = today()): FormatRecord[] {
   const accs = groupFormats(formats);
   const tools = groupTools(reads, writes);
   const count = new Map<string, number>();
   for (const a of accs.values()) count.set(makeId(a.name), (count.get(makeId(a.name)) ?? 0) + 1);
-  return [...accs].map(([q, a]) => {
+  const idOf = new Map([...accs].map(([q, a]) => {
     const base = makeId(a.name);
+    return [q, count.get(base)! > 1 || base === "x" ? `${base}-${q.toLowerCase()}` : base];
+  }));
+  return [...accs].map(([q, a]) => {
     const ts = tools.get(q) ?? [];
     const open = ts.filter((t) => t.open_source);
     const mime = [...a.mime].sort();
+    const family = familyOf(a, accs, idOf);
     return {
-      id: count.get(base)! > 1 || base === "x" ? `${base}-${q.toLowerCase()}` : base,
+      id: idOf.get(q)!,
       name: a.name,
+      ...(family ? { family } : {}),
       category: category(mime),
       identifiers: {
         extensions: [...a.ext].sort(),

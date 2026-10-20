@@ -117,6 +117,38 @@ export function mergeRecords(a: FormatRecord, b: FormatRecord): FormatRecord {
   };
 }
 
+/** Two records whose single PUIDs or single QIDs differ are distinct formats, whatever their names. */
+function conflicting(a: FormatRecord, b: FormatRecord): boolean {
+  return (["puid", "wikidata"] as const).some((k) => {
+    const x = a.identifiers?.[k] ?? [], y = b.identifiers?.[k] ?? [];
+    return x.length === 1 && y.length === 1 && x[0] !== y[0];
+  });
+}
+
+/**
+ * Ids are slugs of names, so two sources can give one id to two distinct formats (PRONOM
+ * "Apple Disk Image" fmt/1071, Wikidata "Apple Disk Image" fmt/625). The later record is
+ * renamed `<id>-<source>`, with the `family` references of its batch, and is not merged by id.
+ */
+function renameConflicts(batches: FormatRecord[][]): FormatRecord[][] {
+  const first = new Map<string, FormatRecord>();
+  return batches.map((batch, b) => {
+    const renamed = new Map<string, string>();
+    const out = batch.map((r) => {
+      const prev = first.get(r.id);
+      if (!prev || !conflicting(prev, r)) {
+        if (!prev) first.set(r.id, r);
+        return r;
+      }
+      const id = `${r.id}-${r.provenance?.sources?.[0] ?? `b${b}`}`;
+      renamed.set(r.id, id);
+      first.set(id, r);
+      return { ...r, id };
+    });
+    return renamed.size ? out.map((r) => (r.family && renamed.has(r.family) ? { ...r, family: renamed.get(r.family)! } : r)) : out;
+  });
+}
+
 /**
  * Merge records that share a merge key (same id, or the same single PUID, QID or LoC id,
  * see mergeKeys). Each batch is one origin: the curated files, then one per snapshot.
@@ -124,7 +156,8 @@ export function mergeRecords(a: FormatRecord, b: FormatRecord): FormatRecord {
  * one LoC description for every Access version), so it is not used to merge. Earlier
  * records win; the merged record keeps the id of the first record of its group.
  */
-export function mergeAll(batches: FormatRecord[][]): FormatRecord[] {
+export function mergeAll(input: FormatRecord[][]): FormatRecord[] {
+  const batches = renameConflicts(input);
   const records = batches.flat();
   const batchOf = batches.flatMap((b, i) => b.map(() => i));
   const holders = new Map<string, Set<number>>(); // key -> batches holding it twice or more
@@ -156,10 +189,63 @@ export function mergeAll(batches: FormatRecord[][]): FormatRecord[] {
     const prev = groups.get(root);
     groups.set(root, prev ? mergeRecords(prev, r) : r);
   });
-  return [...groups.values()].sort((x, y) => x.id.localeCompare(y.id));
+  // A `family` names a record by its id in its own source; point it at the merged record.
+  const finalId = new Map(records.map((r, i) => [r.id, groups.get(find(i))!.id]));
+  return [...groups.values()]
+    .map((r) => {
+      if (!r.family) return r;
+      const family = finalId.get(r.family) ?? r.family;
+      if (family !== r.id) return { ...r, family };
+      const { family: _, ...rest } = r;
+      return rest;
+    })
+    .sort((x, y) => x.id.localeCompare(y.id));
 }
 
-/** All records, curated first (they override), then every snapshot. */
+/**
+ * Give a family to versions that have none, from the records holding several PUIDs (SPEC
+ * P3): a record with fmt/11, fmt/12 and fmt/13 is the family of the records holding just
+ * one of them. A version two families claim gets the one with the fewest PUIDs.
+ */
+export function linkFamilies(records: FormatRecord[]): FormatRecord[] {
+  const byPuid = new Map<string, FormatRecord[]>();
+  for (const r of records) {
+    const p = r.identifiers?.puid ?? [];
+    if (p.length === 1) byPuid.set(p[0], [...(byPuid.get(p[0]) ?? []), r]);
+  }
+  const families = records
+    .filter((r) => (r.identifiers?.puid?.length ?? 0) > 1)
+    .sort((a, b) => a.identifiers!.puid!.length - b.identifiers!.puid!.length || a.id.localeCompare(b.id));
+  const familyOf = new Map<string, string>();
+  for (const f of families) {
+    for (const p of f.identifiers!.puid!) {
+      const holders = byPuid.get(p) ?? [];
+      if (holders.length === 1 && !holders[0].family && !familyOf.has(holders[0].id)) familyOf.set(holders[0].id, f.id);
+    }
+  }
+  return records.map((r) => (familyOf.has(r.id) ? { ...r, family: familyOf.get(r.id)! } : r));
+}
+
+/**
+ * Copy the tools and parsers of a record's families (up the chain) into it, marked with
+ * `via: <family id>`, so a version page shows the software known to handle the format.
+ * Status is not inherited: a tool that reads PNG is not proof it reads every version.
+ */
+export function inheritFromFamily(records: FormatRecord[]): FormatRecord[] {
+  const byId = new Map(records.map((r) => [r.id, r]));
+  return records.map((r) => {
+    const tools = [...(r.tools ?? [])], parsers = [...(r.parsers ?? [])];
+    const seen = new Set([r.id]);
+    for (let f = r.family ? byId.get(r.family) : undefined; f && !seen.has(f.id); f = f.family ? byId.get(f.family) : undefined) {
+      seen.add(f.id);
+      for (const t of f.tools ?? []) if (!t.via && !tools.some((x) => x.url === t.url)) tools.push({ ...t, via: f.id });
+      for (const p of f.parsers ?? []) if (!p.via && !parsers.some((x) => x.url === p.url)) parsers.push({ ...p, via: f.id });
+    }
+    return seen.size > 1 ? { ...r, tools, parsers } : r;
+  });
+}
+
+/** All records, curated first (they override), then every snapshot; families linked and inherited. */
 export function loadAll(root = REPO_ROOT): FormatRecord[] {
-  return mergeAll([loadCurated(root).map((c) => c.record), ...loadSnapshots(root).map((s) => s.records)]);
+  return inheritFromFamily(linkFamilies(mergeAll([loadCurated(root).map((c) => c.record), ...loadSnapshots(root).map((s) => s.records)])));
 }

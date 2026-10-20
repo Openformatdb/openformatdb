@@ -46,6 +46,18 @@ test("a label shared by two items gets the QID appended; ASCII and end-of-file s
   assert.ok(dat.every((r) => r.status === "unknown"));
 });
 
+test("a version item gets as family the parent format that shares an extension, not a genre class", () => {
+  const rows = [
+    { uri: u("Q178051"), uriLabel: v("Portable Network Graphics"), extension: v("png"), parent: u("Q100") },
+    { uri: u("Q27229642"), uriLabel: v("Portable Network Graphics, Version 1.2"), puid: v("fmt/13"), extension: v("png"), parent: u("Q178051") },
+    { uri: u("Q27229642"), uriLabel: v("Portable Network Graphics, Version 1.2"), puid: v("fmt/13"), extension: v("png"), parent: u("Q100") },
+    { uri: u("Q100"), uriLabel: v("raster graphics format"), extension: v("img") },
+  ];
+  const recs = toRecords(rows, [], [], "2026-10-20");
+  assert.equal(recs.find((r) => r.identifiers!.wikidata![0] === "Q27229642")!.family, "portable-network-graphics");
+  assert.equal(recs.find((r) => r.identifiers!.wikidata![0] === "Q178051")!.family, undefined); // Q100 shares no extension
+});
+
 test("tools: reads and writes combined, open source only from a known licence, Wikidata page as fallback url", () => {
   const tools = groupTools(READS, WRITES).get("Q178051")!;
   assert.deepEqual(tools, [

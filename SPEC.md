@@ -108,6 +108,22 @@ under an open-source licence (P275) is said to read (P1072) or write (P1073) the
 whether a specification exists. A paywalled ISO standard can be `writable`; a format
 with no spec at all can be `readable` thanks to reverse engineering.
 
+## Families and versions
+
+PRONOM and Wikidata often describe each version separately (PNG 1.0, 1.1, 1.2) and keep
+software and descriptions on the family (PNG). A record's `family` links it to its parent:
+
+- set by hand in curated records, or by the Wikidata importer from "subclass of" (P279) or
+  "part of" (P361) when the parent is a format that shares an extension or MIME type with
+  it (so genre classes such as "raster graphics format" are not families);
+- set on load when one record holds several PUIDs and another holds just one of them.
+
+On load, a version shows its families' tools and parsers marked `via: <family id>`.
+The status is not inherited: software that reads PNG is no proof it reads every version.
+
+Ids are slugs of names, so two sources can give one id to distinct formats. When their
+single PUIDs or QIDs differ, the later one is renamed `<id>-<source>` instead of merged.
+
 ## Repository layout
 
 ```

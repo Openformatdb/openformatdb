@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { slugify, makeId, mergeRecords, mergeAll, effectiveStatus, validate, type FormatRecord } from "../src/index.ts";
+import { slugify, makeId, mergeRecords, mergeAll, linkFamilies, inheritFromFamily, effectiveStatus, validate, type FormatRecord } from "../src/index.ts";
 
 const r = (o: Partial<FormatRecord>): FormatRecord => ({ id: "x", name: "X", category: "other", status: "unknown", updated: "2026-01-01", ...o });
 
@@ -53,6 +53,41 @@ test("mergeAll ignores an id that two records of one source share", () => {
   const loc = r({ id: "access-loc", identifiers: { loc_fdd: ["fdd000462"] } });
   const out = mergeAll([[access("access-95", "fmt/1"), access("access-97", "fmt/2")], [loc]]);
   assert.deepEqual(out.map((x) => x.id), ["access-95", "access-97", "access-loc"]);
+});
+
+test("same id with conflicting PUIDs: renamed, not merged; families follow", () => {
+  const p = r({ id: "apple-disk-image", identifiers: { puid: ["fmt/1071"] }, provenance: { sources: ["pronom"] } });
+  const w = r({ id: "apple-disk-image", identifiers: { puid: ["fmt/625"] }, provenance: { sources: ["wikidata"] } });
+  const v = r({ id: "apple-disk-image-v2", family: "apple-disk-image", identifiers: { puid: ["fmt/626"] }, provenance: { sources: ["wikidata"] } });
+  const out = mergeAll([[p], [w, v]]);
+  assert.deepEqual(out.map((x) => x.id), ["apple-disk-image", "apple-disk-image-v2", "apple-disk-image-wikidata"]);
+  assert.equal(out.find((x) => x.id === "apple-disk-image-v2")!.family, "apple-disk-image-wikidata");
+  // Same id, no conflicting identifier: merged.
+  assert.equal(mergeAll([[r({ id: "csv", identifiers: { puid: ["x-fmt/18"] } })], [r({ id: "csv", identifiers: { wikidata: ["Q935809"] } })]]).length, 1);
+});
+
+test("family ids follow the merge, families link by PUID, tools are inherited with via", () => {
+  const pronom = [r({ id: "png-1-2", identifiers: { puid: ["fmt/13"] } }), r({ id: "jp2-a", identifiers: { puid: ["fmt/392"] } })];
+  const wd = [
+    r({ id: "png", identifiers: { wikidata: ["Q178051"] }, status: "writable", tools: [{ name: "GIMP", url: "https://www.gimp.org", reads: true, writes: true }] }),
+    r({ id: "png-version-1-2", family: "png", identifiers: { puid: ["fmt/13"], wikidata: ["Q27229642"] } }),
+    r({ id: "jpeg-2000", identifiers: { puid: ["fmt/392", "fmt/463"] }, tools: [{ name: "OpenJPEG", url: "https://www.openjpeg.org" }] }),
+  ];
+  const out = inheritFromFamily(linkFamilies(mergeAll([pronom, wd])));
+  const png12 = out.find((x) => x.id === "png-1-2")!;
+  assert.equal(png12.family, "png");
+  assert.deepEqual(png12.tools, [{ name: "GIMP", url: "https://www.gimp.org", reads: true, writes: true, via: "png" }]);
+  assert.equal(png12.status, "unknown"); // status is not inherited
+  const jp2 = out.find((x) => x.id === "jp2-a")!;
+  assert.equal(jp2.family, "jpeg-2000");
+  assert.equal(jp2.tools![0].via, "jpeg-2000");
+  for (const x of out) assert.deepEqual(validate(x), [], x.id);
+});
+
+test("family cycles do not loop", () => {
+  const out = inheritFromFamily([r({ id: "a", family: "b", tools: [{ name: "A", url: "https://a" }] }), r({ id: "b", family: "a" })]);
+  assert.equal(out.find((x) => x.id === "b")!.tools![0].via, "a");
+  assert.equal(out.find((x) => x.id === "a")!.tools!.length, 1);
 });
 
 test("live claim makes unknown in-progress, expired claim does not", () => {
