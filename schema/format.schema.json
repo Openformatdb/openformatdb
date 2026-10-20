@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openformatdb.org/schema/format.schema.json",
+  "title": "OpenFormatDB format record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "category", "status", "updated"],
+  "$defs": {
+    "formatId": { "type": "string", "pattern": "^[a-z0-9]+([.+-][a-z0-9]+)*$" }
+  },
+  "properties": {
+    "id": { "$ref": "#/$defs/formatId" },
+    "name": { "type": "string", "minLength": 1 },
+    "aliases": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "family": { "$ref": "#/$defs/formatId", "description": "Parent format, for versions and variants" },
+    "category": {
+      "enum": [
+        "image", "raw-photo", "audio", "video", "document", "spreadsheet", "presentation",
+        "ebook", "markup", "font", "archive", "disk-image", "filesystem", "executable",
+        "firmware", "database", "email", "3d", "cad", "gis", "scientific", "medical",
+        "game", "save-game", "config", "source-code", "subtitle", "playlist", "other"
+      ]
+    },
+    "identifiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extensions": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9_+~-]+(\\.[a-z0-9_+~-]+)*$" }, "description": "Without the leading dot, lowercase" },
+        "mime": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+_-]+$" } },
+        "puid": { "type": "array", "items": { "type": "string", "pattern": "^(x-)?fmt/[0-9]+$" } },
+        "wikidata": { "type": "array", "items": { "type": "string", "pattern": "^Q[0-9]+$" } },
+        "loc_fdd": { "type": "array", "items": { "type": "string", "pattern": "^fdd[0-9]+$" } },
+        "uti": { "type": "array", "items": { "type": "string" } },
+        "magic": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["offset", "hex"],
+            "properties": {
+              "offset": { "type": "integer", "minimum": 0 },
+              "hex": { "type": "string", "pattern": "^([0-9a-f]{2}|\\?\\?)+$", "description": "Bytes as lowercase hex; ?? matches any byte" },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "status": { "enum": ["unknown", "in-progress", "partial", "readable", "writable"] },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["availability"],
+      "properties": {
+        "availability": { "enum": ["open-standard", "paywalled-standard", "vendor-published", "reverse-engineered", "none"] },
+        "url": { "type": "string", "format": "uri" },
+        "standard": { "type": "string", "description": "e.g. ISO 32000-2:2020" }
+      }
+    },
+    "summary": { "type": "string" },
+    "structure": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status"],
+        "properties": {
+          "name": { "type": "string" },
+          "status": { "enum": ["unknown", "partial", "documented"] },
+          "confidence": { "enum": ["low", "medium", "high"] },
+          "spec": { "type": "string", "format": "uri" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "parsers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["engine", "url"],
+        "properties": {
+          "engine": { "enum": ["kaitai", "imhex", "fq", "010-editor", "hachoir", "polyfile", "dfdl", "construct", "spicy", "other"] },
+          "url": { "type": "string", "format": "uri" },
+          "license": { "type": "string" },
+          "coverage": { "enum": ["full", "partial", "header-only"] }
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "url"],
+        "properties": {
+          "name": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "license": { "type": "string" },
+          "open_source": { "type": "boolean" },
+          "reads": { "type": "boolean", "default": true },
+          "writes": { "type": "boolean", "default": false },
+          "platforms": { "type": "array", "items": { "enum": ["linux", "macos", "windows", "web", "android", "ios", "other"] } },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "conversions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["to", "tool", "fidelity"],
+        "properties": {
+          "to": { "$ref": "#/$defs/formatId" },
+          "tool": { "type": "string" },
+          "command": { "type": "string", "description": "e.g. ffmpeg -i in.wav out.flac" },
+          "fidelity": { "enum": ["lossless", "lossy", "partial"] },
+          "losses": { "type": "string", "description": "What does not survive the conversion" },
+          "url": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url"],
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "license": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "url", "kind"],
+        "properties": {
+          "name": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "kind": { "enum": ["spec", "format-doc", "library", "tool", "grammar", "wiki", "sample-corpus", "other"] },
+          "license": { "type": "string" },
+          "official": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["who", "contact", "scope", "since", "expires"],
+        "properties": {
+          "who": { "type": "string" },
+          "contact": { "type": "string" },
+          "scope": { "type": "string" },
+          "since": { "type": "string", "format": "date" },
+          "expires": { "type": "string", "format": "date" },
+          "agent": { "type": "string", "description": "agent/tool used" }
+        }
+      }
+    },
+    "verification": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["method", "by", "date"],
+        "properties": {
+          "method": { "enum": ["sample-replay", "manual", "none"] },
+          "by": { "type": "string" },
+          "date": { "type": "string", "format": "date" },
+          "tool": { "type": "string", "description": "parser or tool and version used" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "ai_assisted": { "type": "boolean" },
+        "tools": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "updated": { "type": "string", "format": "date" }
+  }
+}
