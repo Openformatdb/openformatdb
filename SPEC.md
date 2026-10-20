@@ -101,7 +101,8 @@ Status meaning:
 
 Identification registries such as PRONOM say nothing about open implementations, so
 their records come in as `unknown`; the status rises when a parser, tool or curated
-record says more.
+record says more. The Wikidata importer sets `readable` or `writable` when software
+under an open-source licence (P275) is said to read (P1072) or write (P1073) the format.
 
 `status` describes what open implementations can do; `spec.availability` describes
 whether a specification exists. A paywalled ISO standard can be `writable`; a format
