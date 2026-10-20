@@ -9,7 +9,8 @@
   "scripts": {
     "validate": "npm run validate -w @openformatdb/core",
     "import": "npm run import -w @openformatdb/importers --",
-    "test": "npm test --workspaces --if-present"
+    "test": "npm test --workspaces --if-present",
+    "mcp": "npm run start -w @openformatdb/mcp"
   },
   "engines": {
     "node": ">=22.18"

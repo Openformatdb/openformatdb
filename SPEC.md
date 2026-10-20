@@ -175,6 +175,9 @@ The MCP server reads this API remotely (`OFDB_API_URL`) or the local repository
 | `publish_findings(id, record_patch)` | merges findings into the record, validates, writes it |
 | `list_sources()` | imported sources with record counts, licences and snapshot dates |
 
+Built in v0.1: `identify_file`, `lookup_format`, `search_formats`, `list_sources` (read-only, local
+checkout). `find_conversion`, `claim_format` and `publish_findings` come next.
+
 `identify_file` takes the first bytes as hex from the agent, which reads the file
 locally; nothing about the user's file leaves their machine beyond that prefix.
 In v0 writes go to the local repository checkout; the contributor opens the PR.

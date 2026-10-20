@@ -1,0 +1,22 @@
+{
+  "name": "@openformatdb/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for OpenFormatDB: identify a file, find which open tools read, write and convert its format",
+  "keywords": ["mcp", "model-context-protocol", "file-formats", "file-identification", "digital-preservation", "reverse-engineering", "agents"],
+  "homepage": "https://openformatdb.org",
+  "bugs": "https://github.com/openformatdb/openformatdb/issues",
+  "repository": { "type": "git", "url": "git+https://github.com/openformatdb/openformatdb.git", "directory": "packages/mcp" },
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "bin": { "openformatdb-mcp": "./src/server.ts" },
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@openformatdb/core": "*",
+    "zod": "^4.6.7"
+  }
+}

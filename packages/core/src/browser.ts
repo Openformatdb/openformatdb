@@ -113,3 +113,145 @@ export function mergeKeys(r: FormatRecord): string[] {
   }
   return keys;
 }
+
+// ---------- index & search ----------
+
+export interface IndexEntry {
+  id: string;
+  name: string;
+  version?: string;
+  aliases: string[];
+  family?: string;
+  category: string;
+  status: Status;
+  identifiers: Identifiers;
+  sources: string[];
+  /** Software known to handle it (own and inherited), and how many of them are open source. */
+  tools: number;
+  open_tools: number;
+  claims: number;
+  updated: string;
+}
+
+export function toIndexEntry(r: FormatRecord, on = today()): IndexEntry {
+  const tools = r.tools ?? [];
+  return {
+    id: r.id,
+    name: r.name,
+    ...(r.version ? { version: r.version } : {}),
+    aliases: r.aliases ?? [],
+    ...(r.family ? { family: r.family } : {}),
+    category: r.category,
+    status: effectiveStatus(r, on),
+    identifiers: r.identifiers ?? {},
+    sources: r.provenance?.sources ?? [],
+    tools: tools.length,
+    open_tools: tools.filter((t) => t.open_source).length,
+    claims: liveClaims(r, on).length,
+    updated: r.updated,
+  };
+}
+
+export const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+export const compact = (s: string) => norm(s).replace(/ /g, "");
+
+export interface SearchFilters { category?: string; status?: Status; limit?: number }
+
+interface SearchKeys { hay: string; words: Set<string>; ids: string[]; name: string }
+
+const keyCache = new WeakMap<IndexEntry, SearchKeys>();
+function keys(e: IndexEntry): SearchKeys {
+  let k = keyCache.get(e);
+  if (!k) {
+    const hay = norm([e.name, e.version ?? "", ...e.aliases].join(" "));
+    const { magic: _, ...ids } = e.identifiers;
+    k = { hay, words: new Set(hay.split(" ")), ids: Object.values(ids).flat().map((x) => compact(x as string)), name: compact(`${e.name} ${e.version ?? ""}`) };
+    keyCache.set(e, k);
+  }
+  return k;
+}
+
+/** Token search over name, version, aliases and identifiers (extension, MIME, PUID, QID…). */
+export function search(entries: IndexEntry[], query: string, f: SearchFilters = {}): (IndexEntry & { score: number })[] {
+  const tokens = norm(query).split(" ").filter(Boolean);
+  const qc = compact(query);
+  const out: (IndexEntry & { score: number })[] = [];
+  for (const e of entries) {
+    if (f.category && e.category !== f.category) continue;
+    if (f.status && e.status !== f.status) continue;
+    if (!tokens.length) { out.push({ ...e, score: 0 }); continue; }
+    const { hay, words, ids, name } = keys(e);
+    let score = 0;
+    if (qc && ids.includes(qc)) score += 100;
+    if (name === qc || compact(e.name) === qc) score += 50;
+    let all = true;
+    for (const t of tokens) {
+      if (words.has(t)) score += 10;
+      else if (hay.includes(t) || ids.some((i) => i.includes(t))) score += 4;
+      else all = false;
+    }
+    if (!all && score < 100) continue;
+    // Prefer what is better known: open tools, then status, then a family over one of its versions.
+    score += Math.min(e.open_tools, 10) * 0.3 + statusRank(e.status) + (e.family ? 0 : 0.5);
+    out.push({ ...e, score });
+  }
+  out.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+  return out.slice(0, f.limit ?? 50);
+}
+
+// ---------- identification ----------
+
+export interface IdentifyQuery {
+  /** File name or extension ("report.DOC", ".doc", "doc"). */
+  extension?: string;
+  mime?: string;
+  /** First bytes of the file as hex (spaces allowed), e.g. from `xxd -p -l 64 file`. */
+  magic_hex?: string;
+}
+
+export interface Candidate { id: string; name: string; version?: string; family?: string; category: string; status: Status; score: number; matched: string[] }
+
+/** Number of literal bytes of `m` found in `bytes`, or -1 when it does not match. */
+export function magicMatch(bytes: string, m: Magic): number {
+  const start = m.offset * 2;
+  if (bytes.length < start + m.hex.length) return -1;
+  let literal = 0;
+  for (let i = 0; i < m.hex.length; i += 2) {
+    const want = m.hex.slice(i, i + 2);
+    if (want === "??") continue;
+    if (bytes.slice(start + i, start + i + 2) !== want) return -1;
+    literal++;
+  }
+  return literal;
+}
+
+export function extensionOf(s: string): string {
+  const name = s.trim().toLowerCase().split(/[\\/]/).pop() ?? "";
+  return name.includes(".") ? name.slice(name.lastIndexOf(".") + 1) : name;
+}
+
+/**
+ * Candidate formats for a file. A signature beats a MIME type, which beats an extension:
+ * extensions collide (`.dat`), signatures rarely do, and a longer signature is more specific.
+ * Nothing about the file is needed beyond its first bytes; the caller reads it locally.
+ */
+export function identify<T extends Pick<IndexEntry, "id" | "name" | "version" | "family" | "category" | "status" | "identifiers"> & { open_tools?: number }>(entries: T[], q: IdentifyQuery, limit = 10): Candidate[] {
+  const bytes = (q.magic_hex ?? "").toLowerCase().replace(/[^0-9a-f]/g, "");
+  const ext = q.extension ? extensionOf(q.extension) : "";
+  const mime = (q.mime ?? "").toLowerCase().split(";")[0].trim();
+  const out: Candidate[] = [];
+  for (const e of entries) {
+    const matched: string[] = [];
+    let score = 0;
+    if (bytes) {
+      const best = Math.max(-1, ...(e.identifiers.magic ?? []).map((m) => magicMatch(bytes, m)));
+      if (best > 0) { score += 100 + best; matched.push(`signature (${best} bytes)`); }
+    }
+    if (mime && e.identifiers.mime?.includes(mime)) { score += 40; matched.push(`mime ${mime}`); }
+    if (ext && e.identifiers.extensions?.includes(ext)) { score += 20; matched.push(`extension .${ext}`); }
+    if (!score) continue;
+    out.push({ id: e.id, name: e.name, ...(e.version ? { version: e.version } : {}), ...(e.family ? { family: e.family } : {}), category: e.category, status: e.status, score: score + statusRank(e.status) * 0.1 + Math.min(e.open_tools ?? 0, 50) * 0.001, matched });
+  }
+  out.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+  return out.slice(0, limit);
+}
