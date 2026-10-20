@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { backendFromEnv, type Backend } from "./backend.ts";
-import { TOOLS, type Context } from "./tools.ts";
+import { TOOLS, READ_ONLY, type Context } from "./tools.ts";
 
 export function createServer(backend: Backend, opts: { today?: string } = {}): McpServer {
   const server = new McpServer(
@@ -15,6 +15,7 @@ export function createServer(backend: Backend, opts: { today?: string } = {}): M
         "OpenFormatDB is a directory of file formats: how to recognise each one, which software reads, writes and converts it, " +
         "and how far it is documented or reverse engineered. Before writing a parser or reverse engineering a file, " +
         "call identify_file with its first bytes (magic_hex) and name, then lookup_format on the best candidate. " +
+        "If nothing open handles it and you start documenting it, call claim_format first and publish_findings when done, then open a pull request. " +
         `Data: ${backend.location}.`,
     },
   );
@@ -26,7 +27,7 @@ export function createServer(backend: Backend, opts: { today?: string } = {}): M
         title: t.title,
         description: t.description,
         inputSchema: t.shape,
-        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        annotations: { readOnlyHint: READ_ONLY.has(t.name), destructiveHint: false, openWorldHint: false },
       },
       async (args: any) => {
         try {

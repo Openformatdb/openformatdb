@@ -9,6 +9,8 @@ export interface SourceInfo { source: string; name: string; url: string; license
 
 export interface Backend {
   readonly location: string;
+  /** Repository root when writes are allowed (claim_format, publish_findings). */
+  readonly root?: string;
   records(): FormatRecord[];
   index(on?: string): IndexEntry[];
   get(id: string): FormatRecord | null;

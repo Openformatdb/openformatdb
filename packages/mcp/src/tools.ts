@@ -6,6 +6,7 @@ import {
   type FormatRecord, type Status, type Tool,
 } from "@openformatdb/core";
 import type { Backend } from "./backend.ts";
+import { claimFormat, publishFindings } from "./write.ts";
 
 const CATEGORIES: string[] = SCHEMA.properties.category.enum;
 const en = (values: string[]) => z.enum(values as [string, ...string[]]);
@@ -68,7 +69,7 @@ function present(backend: Backend, r: FormatRecord, on: string) {
 
 // ---------- tools ----------
 
-interface ToolDef {
+export interface ToolDef {
   name: string;
   title: string;
   description: string;
@@ -178,4 +179,6 @@ const listSources: ToolDef = {
   },
 };
 
-export const TOOLS: ToolDef[] = [identifyFile, lookupFormat, searchFormats, listSources];
+export const TOOLS: ToolDef[] = [identifyFile, lookupFormat, searchFormats, listSources, claimFormat, publishFindings];
+
+export const READ_ONLY = new Set(["identify_file", "lookup_format", "search_formats", "list_sources"]);

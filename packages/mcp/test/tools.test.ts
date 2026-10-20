@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { rmSync } from "node:fs";
+import { rmSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { LocalBackend } from "../src/backend.ts";
 import { TOOLS, type Context } from "../src/tools.ts";
 import { makeRepo } from "./fixture.ts";
@@ -54,4 +55,54 @@ test("search_formats and list_sources", () => withRepo((ctx) => {
   const src: any = tool("list_sources").run(ctx, {});
   assert.deepEqual(src.sources.map((x: any) => [x.source, x.records]), [["pronom", 3], ["wikidata", 2]]);
   assert.equal(src.total, 4);
+}));
+
+test("claim_format: stub keeps the PUID so it merges back; renewal replaces; limits enforced", () => withRepo((ctx) => {
+  const root = (ctx.backend as any).root as string;
+  const c: any = tool("claim_format").run(ctx, { id: "acme-data-file", who: "ana", contact: "ana@example.org", scope: "header", days: 10 });
+  assert.equal(c.ok, true, c.error);
+  assert.equal(c.action, "created");
+  assert.equal(c.effective_status, "in-progress");
+  const yaml = readFileSync(join(root, "data/formats/acme-data-file.yaml"), "utf8");
+  assert.match(yaml, /fmt\/9999/);
+  assert.equal(ctx.backend.records().filter((r) => r.identifiers?.puid?.includes("fmt/9999")).length, 1); // merged, not duplicated
+  const again: any = tool("claim_format").run(ctx, { id: "acme-data-file", who: "ana", contact: "x", scope: "header", days: 20 });
+  assert.equal(again.action, "updated");
+  assert.equal(ctx.backend.get("acme-data-file")!.claims!.length, 1);
+  assert.equal(tool("claim_format").run(ctx, { id: "acme-data-file", who: "a", contact: "b", scope: "c", days: 365 }).ok, false);
+  assert.equal(tool("claim_format").run(ctx, { id: "acme-data-file", who: "a", contact: "b", scope: "remove the DRM" }).ok, false);
+}));
+
+test("claim_format: a new format needs a category; a similar name is pointed out", () => withRepo((ctx) => {
+  assert.match((tool("claim_format").run(ctx, { name: "Zork Save", who: "a", contact: "b", scope: "c" }) as any).error, /category/);
+  const ok: any = tool("claim_format").run(ctx, { name: "Zork Save", category: "save-game", extensions: [".SAV"], who: "a", contact: "b", scope: "c" });
+  assert.equal(ok.ok, true, ok.error);
+  assert.deepEqual(ctx.backend.get("zork-save")!.identifiers!.extensions, ["sav"]);
+  const near: any = tool("claim_format").run(ctx, { name: "Portable Network Graphics", version: "1.3", category: "image", who: "a", contact: "b", scope: "c" });
+  assert.equal(near.ok, false);
+  assert.ok(near.similar.length);
+}));
+
+test("publish_findings: merges, forward-only status, releases the claim, rejects unknown targets", () => withRepo((ctx) => {
+  tool("claim_format").run(ctx, { id: "acme-data-file", who: "ana", contact: "x", scope: "header" });
+  const patch = {
+    status: "readable", summary: "Acme instrument log.",
+    structure: [{ name: "header", status: "documented", confidence: "medium", spec: "https://example.org/acme.md" }],
+    parsers: [{ engine: "kaitai", url: "https://example.org/acme.ksy", license: "CC0-1.0", coverage: "partial" }],
+    provenance: { ai_assisted: true, tools: ["claude-code"] },
+  };
+  const p: any = tool("publish_findings").run(ctx, { id: "acme-data-file", patch, release_claim_of: "ana" });
+  assert.equal(p.ok, true, p.error);
+  assert.equal(p.released_claims, 1);
+  assert.deepEqual(p.warnings, []);
+  const r = ctx.backend.get("acme-data-file")!;
+  assert.equal(r.status, "readable");
+  assert.equal(r.parsers![0].engine, "kaitai");
+  assert.equal(r.identifiers!.extensions![0], "dat"); // imported data still merged in
+  assert.equal((tool("publish_findings").run(ctx, { id: "acme-data-file", patch: { status: "partial" } }) as any).ok, false);
+  assert.match((tool("publish_findings").run(ctx, { id: "acme-data-file", patch: { conversions: [{ to: "nope", tool: "x", fidelity: "lossy" }] } }) as any).error, /not a known format/);
+  assert.match((tool("publish_findings").run(ctx, { id: "acme-data-file", patch: { bogus: 1 } }) as any).error, /Invalid patch/);
+  // Inherited tools never get written into curated files.
+  tool("publish_findings").run(ctx, { id: "portable-network-graphics-1-2", patch: { summary: "PNG 1.2." } });
+  assert.doesNotMatch(readFileSync(join((ctx.backend as any).root, "data/formats/portable-network-graphics-1-2.yaml"), "utf8"), /via:/);
 }));

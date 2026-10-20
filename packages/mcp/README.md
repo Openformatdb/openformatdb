@@ -10,8 +10,12 @@ reads, writes and converts it, and how far the format is documented.
 | `lookup_format(id \| puid \| wikidata \| mime)` | full record: identifiers, software (open source first, inherited from the family when marked `via`), grammars, specification, family and versions, live claims, advice |
 | `search_formats(query, category?, status?)` | ranked matches by name, alias, extension, MIME, PUID or QID |
 | `list_sources()` | aggregated sources with counts, licences and snapshot dates |
+| `claim_format(id \| name+category, who, contact, scope, days?)` | says you are documenting a format (up to 90 days), so nobody duplicates the work |
+| `publish_findings(id, patch, release_claim_of?)` | merges structure, grammars, tools, conversions, spec, identifiers, verification; status only moves forward |
 
-All tools are read-only. Claiming a format and publishing findings come later (see SPEC.md).
+The two write tools change `data/formats/<id>.yaml` in the checkout and print the git commands
+to open a pull request; they never run git. Text is screened against POLICY.md (no DRM removal,
+no keys, no copies of paywalled standards).
 
 ## Run it
 
