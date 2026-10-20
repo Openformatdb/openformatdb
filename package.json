@@ -1,0 +1,17 @@
+{
+  "name": "openformatdb",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "validate": "npm run validate -w @openformatdb/core",
+    "import": "npm run import -w @openformatdb/importers --",
+    "test": "npm test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

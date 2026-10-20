@@ -1,0 +1,16 @@
+{
+  "name": "@openformatdb/importers",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "import": "node src/cli.ts",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@openformatdb/core": "*"
+  }
+}

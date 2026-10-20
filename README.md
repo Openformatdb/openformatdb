@@ -12,11 +12,18 @@ what a conversion loses — so that nobody, human or AI agent, redoes work that 
   converting or reverse engineering a file; claim the format, publish findings when done.
 - **Existing sources** (PRONOM, Wikidata, Archive Team's File Formats Wiki, Library of
   Congress FDD, Kaitai Struct, MIME databases, converter format lists…) are aggregated by
-  importers (`packages/importers`, planned), with a link back to each source.
+  importers (`packages/importers`; PRONOM today), with a link back to each source.
 
 Sister project of [OpenDeviceDB](https://opendevicedb.org).
 
 See [SPEC.md](SPEC.md) for the design and [POLICY.md](POLICY.md) for what we accept.
 The record format is [schema/format.schema.json](schema/format.schema.json).
+
+```sh
+npm install
+npm test                  # unit tests of every package
+npm run validate          # check every record against schema/format.schema.json
+npm run import -- all     # refresh data/imported/ snapshots (PRONOM_DIR=<clone> to import PRONOM offline)
+```
 
 Code: AGPL-3.0-or-later (see LICENSE). Data: CC BY-SA 4.0 (see LICENSE-DATA.md).

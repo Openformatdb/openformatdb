@@ -48,10 +48,14 @@ One open directory, keyed by file format, that:
   `data/imported/<source>.json` (slim records + link back + the source's licence).
   Curated files override and enrich imported records for the same format id.
   Grammars and specs whose licence does not allow it are linked, never copied.
-- **P3 — Stable keys, not extensions.** Extensions collide (`.dat`, `.bin`, `.sav`
-  mean hundreds of formats). Records are merged on external identifiers — Wikidata QID,
-  PRONOM PUID, LoC FDD id, MIME type — and only fall back to extensions for a
-  candidate list, never for an automatic merge.
+- **P3 — Stable keys, not extensions.** Extensions and MIME types collide (`.dat`,
+  `.bin`, `.sav` mean hundreds of formats). Two records are merged only when they share
+  the id, or hold the same single Wikidata QID, PRONOM PUID or LoC FDD id. A record with
+  several PUIDs or QIDs is a family (e.g. one Wikidata item for every PNG version): it is
+  linked to the versions, never merged into them. Extensions and MIME types only give
+  candidate lists. An identifier that two records of the same source share (PRONOM
+  gives one LoC id to every Access version) is family-level there and is not used to
+  merge. The merged record keeps the first id: curated, then by source.
 - **P4 — Claims prevent duplicate work.** A `claims` entry says "someone is
   reverse engineering this format, scope X, until date Y, contact Z". Claims expire.
 - **P5 — AI output is not trusted by default.** Every structure description carries a
@@ -68,7 +72,7 @@ One open directory, keyed by file format, that:
 | field | meaning |
 |---|---|
 | `id` | lowercase slug, `[a-z0-9]` with `-`, `.`, `+`; a version or variant is a separate record pointing to its `family` (e.g. `pdf` and `pdf-1-7`) |
-| `name`, `aliases` | display names |
+| `name`, `version`, `aliases` | display names; `version` when the record is one version of a family |
 | `family` | id of the parent format, for versions and variants |
 | `category` | enum, see schema |
 | `identifiers` | `extensions`, `mime`, `puid` (PRONOM), `wikidata` (QID), `loc_fdd`, `uti` (Apple), `magic[]` (`offset`, `hex`, `notes`) |
@@ -94,6 +98,10 @@ Status meaning:
   the compressed payload).
 - `readable` — open code can read the whole format and extract its content.
 - `writable` — open code can also write valid files that the original software accepts.
+
+Identification registries such as PRONOM say nothing about open implementations, so
+their records come in as `unknown`; the status rises when a parser, tool or curated
+record says more.
 
 `status` describes what open implementations can do; `spec.availability` describes
 whether a specification exists. A paywalled ISO standard can be `writable`; a format

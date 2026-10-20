@@ -11,12 +11,13 @@
   "properties": {
     "id": { "$ref": "#/$defs/formatId" },
     "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "description": "Version or variant, when the record is one version of a family" },
     "aliases": { "type": "array", "items": { "type": "string" }, "default": [] },
     "family": { "$ref": "#/$defs/formatId", "description": "Parent format, for versions and variants" },
     "category": {
       "enum": [
-        "image", "raw-photo", "audio", "video", "document", "spreadsheet", "presentation",
-        "ebook", "markup", "font", "archive", "disk-image", "filesystem", "executable",
+        "image", "vector-image", "raw-photo", "audio", "video", "document", "spreadsheet", "presentation",
+        "ebook", "text", "markup", "dataset", "font", "archive", "disk-image", "filesystem", "executable",
         "firmware", "database", "email", "3d", "cad", "gis", "scientific", "medical",
         "game", "save-game", "config", "source-code", "subtitle", "playlist", "other"
       ]
