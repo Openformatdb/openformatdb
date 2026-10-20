@@ -4,3 +4,4 @@ site/dist/
 site/.astro/
 .DS_Store
 .claude/
+packages/mcp/LICENSE

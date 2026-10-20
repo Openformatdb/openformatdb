@@ -27,10 +27,18 @@ jobs:
       - run: npm ci
       - run: npm run validate
       - run: npm run build
+      # Needs Settings → Pages → Source: GitHub Actions (the workflow token cannot turn Pages on).
       - uses: actions/configure-pages@v5
-        with: { enablement: true }
-      - uses: actions/upload-pages-artifact@v3
-        with: { path: site/dist }
+      # Same as actions/upload-pages-artifact, minus its dotfile exclusion: the site serves
+      # /.well-known/mcp-registry-auth (MCP Registry domain verification).
+      - name: Package site
+        run: tar --dereference --hard-dereference --directory site/dist -cf "$RUNNER_TEMP/artifact.tar" --exclude=.git --exclude=.github .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/artifact.tar
+          retention-days: 1
+          if-no-files-found: error
   deploy:
     needs: build
     runs-on: ubuntu-latest

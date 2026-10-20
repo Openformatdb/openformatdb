@@ -1,0 +1,36 @@
+name: Release MCP server
+# Publishes @openformatdb/mcp to npm, then packages/mcp/server.json to the MCP Registry.
+# Bump the version in packages/mcp/package.json, server.json and src/server.ts first.
+# Secrets: NPM_TOKEN (npm automation token with publish rights on @openformatdb), and
+# MCP_REGISTRY_PRIVATE_KEY (hex ed25519 key whose public half is served at
+# https://openformatdb.org/.well-known/mcp-registry-auth). Without the second, only npm runs.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write # npm provenance
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm, registry-url: "https://registry.npmjs.org" }
+      - run: npm ci
+      - run: npm test
+      - name: Check versions agree
+        run: |
+          v=$(node -p "require('./packages/mcp/package.json').version")
+          node -e "const s=require('./packages/mcp/server.json'); if (s.version!=='$v'||s.packages[0].version!=='$v') process.exit(1)"
+          grep -q "version: \"$v\"" packages/mcp/src/server.ts
+      - run: npm publish -w @openformatdb/mcp --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to the MCP Registry
+        env:
+          KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then echo "MCP_REGISTRY_PRIVATE_KEY not set: skipped"; exit 0; fi
+          curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher login http --domain openformatdb.org --private-key "$KEY"
+          cd packages/mcp && ../../mcp-publisher publish

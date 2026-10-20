@@ -18,6 +18,20 @@ The two write tools change `data/formats/<id>.yaml` in the checkout and print th
 to open a pull request; they never run git. Text is screened against POLICY.md (no DRM removal,
 no keys, no copies of paywalled standards).
 
+## Install
+
+```sh
+npx -y @openformatdb/mcp
+claude mcp add openformatdb -- npx -y @openformatdb/mcp     # Claude Code
+```
+
+## Release
+
+Bump the version in `package.json`, `server.json` and `src/server.ts`, then run the **Release MCP
+server** workflow: it tests, publishes to npm (secret `NPM_TOKEN`) and to the MCP Registry as
+`org.openformatdb/openformatdb` (secret `MCP_REGISTRY_PRIVATE_KEY`, whose public half is served at
+`https://openformatdb.org/.well-known/mcp-registry-auth`).
+
 ## Run it
 
 Without a checkout it reads the static API of [openformatdb.org](https://openformatdb.org)

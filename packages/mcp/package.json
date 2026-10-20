@@ -1,22 +1,58 @@
 {
   "name": "@openformatdb/mcp",
   "version": "0.1.0",
+  "mcpName": "org.openformatdb/openformatdb",
   "description": "MCP server for OpenFormatDB: identify a file, find which open tools read, write and convert its format",
-  "keywords": ["mcp", "model-context-protocol", "file-formats", "file-identification", "digital-preservation", "reverse-engineering", "agents"],
-  "homepage": "https://openformatdb.org",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "file-formats",
+    "file-identification",
+    "digital-preservation",
+    "reverse-engineering",
+    "agents"
+  ],
+  "homepage": "https://openformatdb.org/agents/",
   "bugs": "https://github.com/openformatdb/openformatdb/issues",
-  "repository": { "type": "git", "url": "git+https://github.com/openformatdb/openformatdb.git", "directory": "packages/mcp" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openformatdb/openformatdb.git",
+    "directory": "packages/mcp"
+  },
   "license": "AGPL-3.0-or-later",
-  "private": true,
   "type": "module",
-  "bin": { "openformatdb-mcp": "./src/server.ts" },
+  "bin": {
+    "openformatdb-mcp": "./dist/server.js"
+  },
+  "exports": {
+    ".": "./dist/tools.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/server.ts",
-    "test": "node --test test/*.test.ts"
+    "test": "node --test test/*.test.ts",
+    "build": "esbuild src/server.ts src/tools.ts --bundle --platform=node --format=esm --target=node20 --outdir=dist --external:@modelcontextprotocol/sdk --external:zod --external:yaml --external:ajv --external:ajv-formats && cp ../../LICENSE LICENSE",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@openformatdb/core": "*",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.6.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "@openformatdb/core": "*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

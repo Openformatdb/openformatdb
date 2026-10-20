@@ -13,3 +13,4 @@ jobs:
       - run: npm ci
       - run: npm run validate
       - run: npm test
+      - run: npm run build -w @openformatdb/mcp # the npm bundle
