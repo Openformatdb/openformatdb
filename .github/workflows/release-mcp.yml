@@ -23,6 +23,11 @@ jobs:
           v=$(node -p "require('./packages/mcp/package.json').version")
           node -e "const s=require('./packages/mcp/server.json'); if (s.version!=='$v'||s.packages[0].version!=='$v') process.exit(1)"
           grep -q "version: \"$v\"" packages/mcp/src/server.ts
+      # Build first: npm reads the manifest before prepublishOnly runs, and drops a `bin` whose file
+      # does not exist yet ("script name dist/server.js was invalid and removed").
+      - run: npm run build -w @openformatdb/mcp
+      - name: Check the tarball keeps the bin
+        run: cd packages/mcp && npm pack --dry-run --json | node -e "const p=JSON.parse(require('fs').readFileSync(0))[0]; if(!p.files.some(f=>f.path==='dist/server.js')) process.exit(1)" && node -p "require('./package.json').bin['openformatdb-mcp']"
       - run: npm publish -w @openformatdb/mcp --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
