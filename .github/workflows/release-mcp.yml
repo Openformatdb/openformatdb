@@ -1,9 +1,10 @@
 name: Release MCP server
 # Publishes @openformatdb/mcp to npm, then packages/mcp/server.json to the MCP Registry.
 # Bump the version in packages/mcp/package.json, server.json and src/server.ts first.
-# Secrets: NPM_TOKEN (npm automation token with publish rights on @openformatdb), and
-# MCP_REGISTRY_PRIVATE_KEY (hex ed25519 key whose public half is served at
-# https://openformatdb.org/.well-known/mcp-registry-auth). Without the second, only npm runs.
+# npm: trusted publishing (OIDC) from this workflow, configured on npmjs.com for
+# @openformatdb/mcp; no npm token is stored. MCP Registry: secret MCP_REGISTRY_PRIVATE_KEY
+# (hex ed25519 key whose public half is served at
+# https://openformatdb.org/.well-known/mcp-registry-auth). Without it, only npm runs.
 on:
   workflow_dispatch:
     inputs:
@@ -13,7 +14,7 @@ on:
         default: false
 permissions:
   contents: read
-  id-token: write # npm provenance
+  id-token: write # npm trusted publishing and provenance
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -21,6 +22,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: 24, cache: npm, registry-url: "https://registry.npmjs.org" }
+      - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
       - run: npm ci
       - run: npm test
       - name: Check versions agree
@@ -37,8 +39,6 @@ jobs:
         run: cd packages/mcp && npm pack --dry-run --json | node -e "const p=JSON.parse(require('fs').readFileSync(0))[0]; if(!p.files.some(f=>f.path==='dist/server.js')) process.exit(1)" && node -p "require('./package.json').bin['openformatdb-mcp']"
       - if: ${{ !inputs.registry_only }}
         run: npm publish -w @openformatdb/mcp --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to the MCP Registry
         env:
           KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
