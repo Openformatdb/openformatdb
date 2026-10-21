@@ -44,6 +44,10 @@ jobs:
           KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
         run: |
           if [ -z "$KEY" ]; then echo "MCP_REGISTRY_PRIVATE_KEY not set: skipped"; exit 0; fi
+          # What the registry will see: GitHub Pages wants A records to 185.199.108-111.153 only, no AAAA
+          # elsewhere, and a CAA (if any) allowing letsencrypt.org; the TXT is the DNS-proof fallback.
+          for t in A AAAA CAA TXT; do echo "$t: $(dig +short openformatdb.org $t | tr '\n' ' ')"; done
+          echo "TLS: $(echo | openssl s_client -connect openformatdb.org:443 -servername openformatdb.org 2>/dev/null | openssl x509 -noout -subject -issuer 2>/dev/null | tr '\n' ' ')"
           curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
           # HTTP proof (https://openformatdb.org/.well-known/mcp-registry-auth), else the same record as DNS TXT.
           ./mcp-publisher login http --domain openformatdb.org --private-key "$KEY" \
