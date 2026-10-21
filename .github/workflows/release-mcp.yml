@@ -45,5 +45,7 @@ jobs:
         run: |
           if [ -z "$KEY" ]; then echo "MCP_REGISTRY_PRIVATE_KEY not set: skipped"; exit 0; fi
           curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
-          ./mcp-publisher login http --domain openformatdb.org --private-key "$KEY"
+          # HTTP proof (https://openformatdb.org/.well-known/mcp-registry-auth), else the same record as DNS TXT.
+          ./mcp-publisher login http --domain openformatdb.org --private-key "$KEY" \
+            || ./mcp-publisher login dns --domain openformatdb.org --private-key "$KEY"
           cd packages/mcp && ../../mcp-publisher publish
