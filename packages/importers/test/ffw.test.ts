@@ -66,3 +66,14 @@ test("plain text and page urls", () => {
   assert.equal(plain("A [[Foo|bar]] and [https://x.org link] {{tmpl|{{inner}}}} '''bold'''"), "A bar and link bold");
   assert.equal(pageUrl("Microsoft Word (DOC)"), "http://fileformats.archiveteam.org/wiki/Microsoft_Word_(DOC)");
 });
+
+test("digipres.org harvest entries map like wiki pages", async () => {
+  const { fromHarvest } = await import("../src/sources/ffw.ts");
+  const r = compactRecord(fromHarvest({ name: "PNG", extensions: ["png"], mimetypes: ["image/png"], pronom: ["fmt/13", "fmt/12"], wikidata: ["Q178051"],
+    fdd: ["fdd000153"], magic: ["89 50 4E 47 0D 0A 1A 0A", "IHDR"], categories: ["Electronic File Formats", "Graphics"], pageStartText: "Forensics Wiki article] * ..." }, "2026-10-24")!);
+  assert.deepEqual(validate(r), []);
+  assert.equal(r.category, "image");
+  assert.deepEqual(r.identifiers!.magic, [{ offset: 0, hex: "89504e470d0a1a0a", notes: "File Formats Wiki" }]);
+  assert.equal(r.summary, undefined);
+  assert.equal(fromHarvest({ name: "Graphics", categories: ["Graphics"] }), null);
+});

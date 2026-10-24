@@ -7,7 +7,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { makeId, today, type FormatRecord, type Magic, type Tool, type Project } from "@openformatdb/core";
-import { clean, fetchJson, type Source } from "../lib.ts";
+import YAML from "yaml";
+import { clean, fetchJson, githubRaw, type Source } from "../lib.ts";
 
 // The wiki is served over plain HTTP (its canonical URLs are http://); HTTPS is the fallback.
 const APIS = ["http://fileformats.archiveteam.org/api.php", "https://fileformats.archiveteam.org/api.php"];
@@ -108,6 +109,22 @@ export function toRecord(title: string, text: string, on = today()): FormatRecor
   };
 }
 
+/**
+ * Fallback when the wiki itself cannot be reached (it times out from GitHub's runners): the
+ * harvest digipres.org publishes of the same pages (_sources/registries/mediawikis/ffw.yml),
+ * with identifiers, magic and categories, but no summary nor software links.
+ */
+export function fromHarvest(f: any, on = today()): FormatRecord | null {
+  const title = clean(f?.name);
+  if (!title) return null;
+  const tpl = (name: string, vals: unknown) => (Array.isArray(vals) ? vals : []).map((v) => `{{${name}|${clean(v)}}}`).join(" ");
+  const text = [tpl("Ext", f.extensions), tpl("Mimetype", f.mimetypes), tpl("PRONOM", f.pronom), tpl("Wikidata", f.wikidata),
+    tpl("LoCFDD", f.fdd), tpl("UTI", f.uti), tpl("Magic", f.magic),
+    ...(Array.isArray(f.categories) ? f.categories : []).map((c: unknown) => `[[Category:${clean(c)}]]`)].join("\n");
+  // pageStartText is the page with templates cut out, often a list of links: not used as summary.
+  return toRecord(title, text, on);
+}
+
 /** Ids from titles; titles slugging alike get a numbered suffix in title order. */
 export function assignIds(records: FormatRecord[]): FormatRecord[] {
   const seen = new Map<string, number>();
@@ -155,15 +172,29 @@ async function readAll(): Promise<[string, string][]> {
   return pages.sort((a, b) => a[0].localeCompare(b[0]));
 }
 
+async function readHarvest(): Promise<any[]> {
+  const text = await githubRaw("digipres/digipres.github.io", "main", "_sources/registries/mediawikis/ffw.yml");
+  return YAML.parse(text)?.formats ?? [];
+}
+
 const source: Source = {
   source: "ffw",
   name: "Just Solve the File Format Problem (File Formats Wiki)",
   url: "http://fileformats.archiveteam.org",
   license: "CC0-1.0",
   async fetch() {
-    const pages = await readAll();
-    if (pages.length < 2000) throw new Error(`only ${pages.length} File Formats Wiki pages, expected 5000+`);
-    return assignIds(pages.map(([t, text]) => toRecord(t, text)).filter((r): r is FormatRecord => !!r));
+    let records: FormatRecord[];
+    try {
+      const pages = await readAll();
+      if (pages.length < 2000) throw new Error(`only ${pages.length} pages`);
+      records = pages.map(([t, text]) => toRecord(t, text)).filter((r): r is FormatRecord => !!r);
+    } catch (e) {
+      console.log(`  ffw: wiki unreachable (${(e as Error).message}); using the digipres.org harvest`);
+      const harvest = await readHarvest();
+      if (harvest.length < 2000) throw new Error(`only ${harvest.length} pages in the digipres.org harvest, expected 5000+`);
+      records = harvest.map((f) => fromHarvest(f)).filter((r): r is FormatRecord => !!r);
+    }
+    return assignIds(records.sort((a, b) => a.name.localeCompare(b.name)));
   },
 };
 
