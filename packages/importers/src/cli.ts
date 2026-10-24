@@ -28,7 +28,8 @@ for (const src of SOURCES.filter((s) => arg === "all" || s.source === arg)) {
     for (const e of f.errors) console.log(`  invalid ${e}`);
   } catch (e) {
     failed++;
-    console.error(`${src.source}: FAILED, snapshot left unchanged: ${(e as Error).message}`);
+    const cause = (e as any)?.cause; // fetch() puts the network error (DNS, TLS, refused) here
+    console.error(`${src.source}: FAILED, snapshot left unchanged: ${(e as Error).message}${cause ? ` (${cause.code ?? ""} ${cause.message ?? cause})` : ""}`);
   }
 }
 process.exit(failed ? 1 : 0);

@@ -9,7 +9,8 @@ import { join } from "node:path";
 import { makeId, today, type FormatRecord, type Magic, type Tool, type Project } from "@openformatdb/core";
 import { clean, fetchJson, type Source } from "../lib.ts";
 
-const API = "https://fileformats.archiveteam.org/api.php";
+// The wiki is served over plain HTTP (its canonical URLs are http://); HTTPS is the fallback.
+const APIS = ["http://fileformats.archiveteam.org/api.php", "https://fileformats.archiveteam.org/api.php"];
 const WIKI = "http://fileformats.archiveteam.org/wiki/";
 
 export const pageUrl = (title: string) => WIKI + encodeURIComponent(title.replace(/ /g, "_")).replace(/%2F/g, "/");
@@ -117,9 +118,19 @@ export function assignIds(records: FormatRecord[]): FormatRecord[] {
   });
 }
 
+let apiBase: string | undefined;
 async function api(params: Record<string, string>): Promise<any> {
   const q = new URLSearchParams({ format: "json", formatversion: "2", ...params });
-  return fetchJson(`${API}?${q}`);
+  if (apiBase) return fetchJson(`${apiBase}?${q}`);
+  let last: unknown;
+  for (const base of APIS) {
+    try {
+      const r = await fetchJson(`${base}?${q}`, { retries: 2 });
+      apiBase = base;
+      return r;
+    } catch (e) { last = e; }
+  }
+  throw last;
 }
 
 /** Titles of the pages embedding Template:FormatInfo, then their wikitext, 50 at a time. */
