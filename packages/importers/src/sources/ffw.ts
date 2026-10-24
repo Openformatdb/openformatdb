@@ -173,7 +173,7 @@ async function readAll(): Promise<[string, string][]> {
 }
 
 async function readHarvest(): Promise<any[]> {
-  const text = await githubRaw("digipres/digipres.github.io", "main", "_sources/registries/mediawikis/ffw.yml");
+  const text = await githubRaw("digipres/digipres.github.io", "master", "_sources/registries/mediawikis/ffw.yml");
   return YAML.parse(text)?.formats ?? [];
 }
 
