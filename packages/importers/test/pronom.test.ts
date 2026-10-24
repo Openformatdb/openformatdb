@@ -54,6 +54,10 @@ test("PNG record maps to a valid format record", () => {
   assert.deepEqual(r.identifiers, {
     extensions: ["png"], mime: ["image/png"], puid: ["fmt/13"], uti: ["public.png"],
     magic: [{ offset: 0, hex: "89504e470d0a1a0a0000000d49484452", notes: "PNG 1.2" }],
+    signatures: [{ name: "PNG 1.2", sequences: [
+      { position: "bof", offset: 0, pattern: "89504e470d0a1a0a0000000d49484452*69545874" },
+      { position: "eof", offset: 0, pattern: "0000000049454e44ae426082" },
+    ] }],
   });
   assert.equal(r.summary, "Portable Network Graphics (PNG) was designed for the lossless, portable, compressed storage of raster images.");
   assert.equal(r.updated, "2005-08-02");

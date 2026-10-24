@@ -111,13 +111,16 @@ export class RemoteBackend implements Backend {
   }
 
   private async load() {
-    const [index, magic, conversions] = await Promise.all([this.getJson("/api/index.json"), this.getJson("/api/magic.json"), this.getJson("/api/conversions.json")]);
+    const [index, magic, conversions, sigs] = await Promise.all([
+      this.getJson("/api/index.json"), this.getJson("/api/magic.json"), this.getJson("/api/conversions.json"),
+      this.getJson("/api/signatures.json").catch(() => null), // optional: sites built before signatures
+    ]);
     if (!Array.isArray(index)) throw new Error(`${this.location}/api/index.json is missing or not an array`);
     if (this.slim?.from !== index) {
       const records: FormatRecord[] = index.map((e: any) => ({
         id: e.id, name: e.name, ...(e.version ? { version: e.version } : {}), aliases: e.aliases ?? [], ...(e.family ? { family: e.family } : {}),
         category: e.category, status: e.status,
-        identifiers: { ...e.identifiers, ...(magic?.[e.id] ? { magic: magic[e.id].map(([offset, hex]: [number, string]) => ({ offset, hex })) } : {}) },
+        identifiers: { ...e.identifiers, ...(magic?.[e.id] ? { magic: magic[e.id].map(([offset, hex]: [number, string]) => ({ offset, hex })) } : {}), ...(sigs?.[e.id] ?? {}) },
         ...(conversions?.[e.id] ? { conversions: conversions[e.id] } : {}),
         provenance: { sources: e.sources ?? [] }, updated: e.updated ?? "",
         // Counts only: the index carries how many tools, not which ones.

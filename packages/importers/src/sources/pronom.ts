@@ -4,7 +4,7 @@
 // clone to import without network.
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { makeId, slugify, today, type FormatRecord, type Magic } from "@openformatdb/core";
+import { makeId, slugify, today, type FormatRecord, type Magic, type Signature } from "@openformatdb/core";
 import { clean, githubFiles, githubRaw, mapLimit, type Source } from "../lib.ts";
 
 const REPO = "nationalarchives/pronom";
@@ -66,6 +66,24 @@ function magics(raw: any): Magic[] {
   return out;
 }
 
+const POSITION: Record<string, "bof" | "eof" | "var"> = { "Absolute from BOF": "bof", "Absolute from EOF": "eof", "Variable": "var" };
+
+/** Every internal signature, sequences kept whole (identify checks them all). */
+export function signatures(raw: any): Signature[] {
+  const out: Signature[] = [];
+  for (const sig of raw.internalSignatures ?? []) {
+    const sequences = (sig.byteSequences ?? []).flatMap((b: any) => {
+      const position = POSITION[b.positionType];
+      const pattern = clean(b.byteSequence).toLowerCase().replace(/\s+/g, "");
+      if (!position || !pattern) return [];
+      const offset = Number.isInteger(b.offset) ? b.offset : 0;
+      return [{ position, ...(position !== "var" ? { offset } : {}), ...(position !== "var" && Number.isInteger(b.maxOffset) && b.maxOffset !== offset ? { max_offset: b.maxOffset } : {}), pattern }];
+    });
+    if (sequences.length) out.push({ ...(clean(sig.name) ? { name: clean(sig.name) } : {}), sequences });
+  }
+  return out;
+}
+
 /** "02 Aug 2005" → "2005-08-02"; unparsable → undefined. */
 export function isoDate(s: string | null | undefined): string | undefined {
   if (!s) return undefined;
@@ -100,6 +118,9 @@ export function toRecord(raw: any): FormatRecord & { puid: string } {
       loc_fdd: ids("Library of Congress Format Description Identifier").filter((f: string) => /^fdd[0-9]+$/.test(f)),
       uti: ids("Apple Uniform Type Identifier"),
       magic: magics(raw),
+      signatures: signatures(raw),
+      priority_over: (raw.relationships ?? []).filter((r: any) => r.relationshipType === "Has priority over")
+        .map((r: any) => clean(r.relatedFormatPUID)).filter((p: string) => /^(x-)?fmt\/[0-9]+$/.test(p)),
     },
     status: "unknown",
     summary: clean(raw.formatDescription),

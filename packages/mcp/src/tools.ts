@@ -82,10 +82,14 @@ const identifyFile: ToolDef = {
   title: "Identify a file",
   description:
     "Candidate formats for a file, ranked: a signature match beats a MIME type, which beats an extension. " +
-    "Read the first bytes yourself (e.g. `xxd -p -l 64 file`) and pass them as magic_hex; the file never leaves the machine. " +
+    "Read the bytes yourself and pass them as hex; the file never leaves the machine: magic_hex = the first bytes (`xxd -p -l 1024 file`), " +
+    "tail_hex = the last bytes (`tail -c 512 file | xxd -p`) so end-of-file signatures can be checked, whole_file when magic_hex is the entire file. " +
+    "Full PRONOM signatures and their priorities decide between close formats (PNG 1.0 / 1.2 / APNG). " +
     "Then call lookup_format on the best candidate.",
   shape: {
-    magic_hex: z.string().max(4096).optional().describe("First bytes of the file as hex, spaces allowed (64 bytes is usually enough)"),
+    magic_hex: z.string().max(20000).optional().describe("First bytes of the file as hex, spaces allowed (1024 bytes recommended)"),
+    tail_hex: z.string().max(4096).optional().describe("Last bytes of the file as hex (512 bytes recommended)"),
+    whole_file: z.boolean().optional().describe("magic_hex holds the entire file"),
     extension: z.string().max(200).optional().describe("File name or extension, e.g. report.doc or .doc"),
     mime: z.string().max(200).optional().describe("MIME type if known, e.g. from `file --mime-type`"),
     limit: z.number().int().min(1).max(50).optional(),
@@ -94,7 +98,7 @@ const identifyFile: ToolDef = {
     if (!a.magic_hex && !a.extension && !a.mime) return fail("Give at least one of magic_hex, extension or mime.");
     const on = ctx.today ?? today();
     const candidates = identify(await ctx.backend.index(on), a, a.limit ?? 10);
-    const bySignature = candidates.some((c) => c.matched.some((m) => m.startsWith("signature")));
+    const bySignature = candidates.some((c) => c.matched.some((m) => m.startsWith("signature") || m === "full signature"));
     const tied = candidates.filter((c) => Math.floor(c.score) === Math.floor(candidates[0]?.score ?? -1)).length;
     return {
       ok: true,
@@ -105,8 +109,7 @@ const identifyFile: ToolDef = {
         : a.magic_hex && !bySignature
           ? "No signature matched: candidates come from the extension or MIME type only and may be wrong (extensions collide)."
           : tied > 1
-            ? `${tied} candidates match equally (signatures here are fixed prefixes, e.g. PNG and APNG share theirs): ` +
-              "compare them with lookup_format, or check further into the file."
+            ? `${tied} candidates match equally: ` + (a.tail_hex ? "compare them with lookup_format." : "pass tail_hex (the last 512 bytes) so end-of-file signatures can tell them apart, or compare them with lookup_format.")
             : undefined,
     };
   },

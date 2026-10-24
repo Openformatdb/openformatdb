@@ -88,6 +88,8 @@ function mergeIdentifiers(a: Identifiers = {}, b: Identifiers = {}): Identifiers
     if (a[k] || b[k]) out[k] = [...new Set([...(a[k] ?? []), ...(b[k] ?? [])])];
   }
   if (a.magic || b.magic) out.magic = uniqBy([...(a.magic ?? []), ...(b.magic ?? [])], (m) => `${m.offset}:${m.hex}`);
+  if (a.signatures || b.signatures) out.signatures = uniqBy([...(a.signatures ?? []), ...(b.signatures ?? [])], (s) => JSON.stringify(s.sequences));
+  if (a.priority_over || b.priority_over) out.priority_over = [...new Set([...(a.priority_over ?? []), ...(b.priority_over ?? [])])];
   return out;
 }
 

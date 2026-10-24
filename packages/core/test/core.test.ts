@@ -125,3 +125,47 @@ test("conversionPaths: cheapest chain first, family of the target counts, no cyc
   assert.deepEqual(conversionPaths(recs, "md", "wpd"), []);
   assert.equal(conversionPaths(recs, "wpd", "md", { maxSteps: 1 }).length, 0);
 });
+
+test("compilePattern covers the PRONOM syntax and rejects the rest", async () => {
+  const { compilePattern } = await import("../src/index.ts");
+  const re = (p: string) => new RegExp(`^${compilePattern(p)}$`);
+  assert.ok(re("4d4d??2a").test("4d4d002a"));
+  assert.ok(re("ff{2}00").test("ffabcd00") && !re("ff{2}00").test("ffab00"));
+  assert.ok(re("ff{1-2}00").test("ffab00") && re("ff{1-2}00").test("ffabcd00"));
+  assert.ok(re("ff{1-*}00").test("ffabcdef00"));
+  assert.ok(re("[30:39]").test("35") && !re("[30:39]").test("41"));
+  assert.ok(re("[!00]").test("01") && !re("[!00]").test("00"));
+  assert.ok(re("(ffd8|ffd9)").test("ffd9"));
+  assert.ok(re("00*ff").test("00aabbff"));
+  assert.equal(compilePattern("ab&cd"), null);
+  assert.equal(compilePattern("abc"), null);
+});
+
+test("identify: full signatures and PRONOM priorities tell PNG 1.0 from APNG and PNG 1.2", async () => {
+  const { identify } = await import("../src/index.ts");
+  const bof = (p: string) => ({ position: "bof" as const, offset: 0, pattern: p });
+  const iend = { position: "eof" as const, offset: 0, pattern: "0000000049454e44ae426082" };
+  const head = "89504e470d0a1a0a0000000d49484452";
+  const entries = [
+    { id: "png-1-0", name: "PNG", version: "1.0", category: "image", status: "unknown" as const,
+      identifiers: { puid: ["fmt/11"], magic: [{ offset: 0, hex: head }], signatures: [{ sequences: [bof(head), { ...iend, max_offset: 4 }] }], priority_over: ["fmt/935"] } },
+    { id: "png-1-2", name: "PNG", version: "1.2", category: "image", status: "unknown" as const,
+      identifiers: { puid: ["fmt/13"], magic: [{ offset: 0, hex: head }], signatures: [{ sequences: [bof(head + "*69545874"), iend] }], priority_over: ["fmt/11"] } },
+    { id: "apng", name: "APNG", category: "image", status: "unknown" as const,
+      identifiers: { puid: ["fmt/935"], magic: [{ offset: 0, hex: head }], signatures: [{ sequences: [bof(head + "*6163544c"), iend] }] } },
+  ];
+  const tail = "0000000049454e44ae426082";
+  const plain = head + "0000000108020000009077" + "0000000c4944415408d763f8cfc0000003010100c9fe92ef";
+  // A minimal PNG: only PNG 1.0's signature matches; APNG falls back to its prefix, below it.
+  const a = identify(entries, { magic_hex: plain, tail_hex: tail });
+  assert.equal(a[0].id, "png-1-0");
+  assert.deepEqual(a[0].matched, ["full signature"]);
+  // With an iTXt chunk both 1.0 and 1.2 match; 1.2 has priority over 1.0.
+  const withText = head + "00000001080200000090770000000a69545874";
+  const b = identify(entries, { magic_hex: withText, tail_hex: tail });
+  assert.equal(b[0].id, "png-1-2");
+  assert.ok(!b.some((c) => c.id === "png-1-0"));
+  // The whole file given and no acTL: APNG is ruled out, not even a prefix candidate.
+  const c = identify(entries, { magic_hex: plain + tail, whole_file: true });
+  assert.ok(!c.some((x) => x.id === "apng"));
+});

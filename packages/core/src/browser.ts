@@ -6,6 +6,8 @@ export type Status = "unknown" | "in-progress" | "partial" | "readable" | "writa
 export const STATUSES: Status[] = ["unknown", "in-progress", "partial", "readable", "writable"];
 
 export interface Magic { offset: number; hex: string; notes?: string }
+export interface Sequence { position: "bof" | "eof" | "var"; offset?: number; max_offset?: number; pattern: string }
+export interface Signature { name?: string; sequences: Sequence[] }
 export interface Identifiers {
   extensions?: string[];
   mime?: string[];
@@ -14,6 +16,8 @@ export interface Identifiers {
   loc_fdd?: string[];
   uti?: string[];
   magic?: Magic[];
+  signatures?: Signature[];
+  priority_over?: string[];
 }
 export interface Spec { availability: "open-standard" | "paywalled-standard" | "vendor-published" | "reverse-engineered" | "none"; url?: string; standard?: string }
 export interface StructurePart { name: string; status: "unknown" | "partial" | "documented"; confidence?: "low" | "medium" | "high"; spec?: string; notes?: string }
@@ -205,8 +209,12 @@ export interface IdentifyQuery {
   /** File name or extension ("report.DOC", ".doc", "doc"). */
   extension?: string;
   mime?: string;
-  /** First bytes of the file as hex (spaces allowed), e.g. from `xxd -p -l 64 file`. */
+  /** First bytes of the file as hex (spaces allowed), e.g. from `xxd -p -l 1024 file`. */
   magic_hex?: string;
+  /** Last bytes of the file as hex, e.g. from `tail -c 512 file | xxd -p`: checks end-of-file signatures. */
+  tail_hex?: string;
+  /** True when magic_hex holds the whole file. */
+  whole_file?: boolean;
 }
 
 export interface Candidate { id: string; name: string; version?: string; family?: string; category: string; status: Status; score: number; matched: string[] }
@@ -236,24 +244,147 @@ export function extensionOf(s: string): string {
  * Nothing about the file is needed beyond its first bytes; the caller reads it locally.
  */
 export function identify<T extends Pick<IndexEntry, "id" | "name" | "version" | "family" | "category" | "status" | "identifiers"> & { open_tools?: number }>(entries: T[], q: IdentifyQuery, limit = 10): Candidate[] {
-  const bytes = (q.magic_hex ?? "").toLowerCase().replace(/[^0-9a-f]/g, "");
+  const hex = (s?: string) => (s ?? "").toLowerCase().replace(/[^0-9a-f]/g, "");
+  const bytes = hex(q.magic_hex);
+  const tail = hex(q.tail_hex) || undefined;
   const ext = q.extension ? extensionOf(q.extension) : "";
   const mime = (q.mime ?? "").toLowerCase().split(";")[0].trim();
   const out: Candidate[] = [];
+  const full = new Set<string>(); // ids whose full signature matched
+  const puids = new Map<string, string>(); // puid -> id, for priorities
   for (const e of entries) {
     const matched: string[] = [];
     let score = 0;
     if (bytes) {
-      const best = Math.max(-1, ...(e.identifiers.magic ?? []).map((m) => magicMatch(bytes, m)));
-      if (best > 0) { score += 100 + best; matched.push(`signature (${best} bytes)`); }
+      const sigs = e.identifiers.signatures ?? [];
+      const results = sigs.map((s) => signatureMatch(s, bytes, tail, q.whole_file));
+      if (results.includes("match")) {
+        score += 200; matched.push("full signature"); full.add(e.id);
+        for (const p of e.identifiers.puid ?? []) puids.set(p, e.id);
+      } else {
+        const best = Math.max(-1, ...(e.identifiers.magic ?? []).map((m) => magicMatch(bytes, m)));
+        // Signatures all checked and none matched: the prefix alone is not evidence.
+        const ruledOut = sigs.length > 0 && results.every((r) => r === "fail");
+        if (best > 0 && !ruledOut) { score += 100 + best; matched.push(`signature (${best} bytes)`); }
+      }
     }
     if (mime && e.identifiers.mime?.includes(mime)) { score += 40; matched.push(`mime ${mime}`); }
     if (ext && e.identifiers.extensions?.includes(ext)) { score += 20; matched.push(`extension .${ext}`); }
     if (!score) continue;
     out.push({ id: e.id, name: e.name, ...(e.version ? { version: e.version } : {}), ...(e.family ? { family: e.family } : {}), category: e.category, status: e.status, score: score + statusRank(e.status) * 0.1 + Math.min(e.open_tools ?? 0, 50) * 0.001, matched });
   }
-  out.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
-  return out.slice(0, limit);
+  // PRONOM priorities: of two full matches, drop the one the other has priority over.
+  const beaten = new Set<string>();
+  for (const e of entries) {
+    if (!full.has(e.id)) continue;
+    for (const p of e.identifiers.priority_over ?? []) {
+      const loser = puids.get(p);
+      if (loser && loser !== e.id) beaten.add(loser);
+    }
+  }
+  const kept = out.filter((c) => !beaten.has(c.id));
+  kept.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+  return kept.slice(0, limit);
+}
+
+// ---------- full signatures ----------
+
+const BYTE = "[0-9a-f]{2}";
+
+/** All bytes from a to b as hex alternatives (a byte range in PRONOM is inclusive). */
+function byteRange(a: number, b: number): string {
+  const out: string[] = [];
+  for (let i = Math.min(a, b); i <= Math.max(a, b); i++) out.push(i.toString(16).padStart(2, "0"));
+  return `(?:${out.join("|")})`;
+}
+
+/**
+ * A PRONOM byte sequence as a regular expression over the file's bytes written as lowercase hex
+ * (two characters per byte). Supports hex, ?? (any byte), * (any run), {n} {n-m} {n-*} (gaps),
+ * [aa] [aa:bb] [!aa] [!aa:bb] (byte sets) and (a|b) alternatives. Null for anything else.
+ */
+export function compilePattern(pattern: string): string | null {
+  const p = pattern.toLowerCase().replace(/\s+/g, "");
+  let i = 0;
+  const seq = (stop: string): string | null => {
+    let out = "";
+    while (i < p.length && !stop.includes(p[i])) {
+      const c = p[i];
+      if (/[0-9a-f]/.test(c)) {
+        if (!/^[0-9a-f]{2}$/.test(p.slice(i, i + 2))) return null;
+        out += p.slice(i, i + 2); i += 2;
+      } else if (p.startsWith("??", i)) { out += BYTE; i += 2; }
+      else if (c === "*") { out += `(?:${BYTE})*?`; i++; }
+      else if (c === "{") {
+        const m = p.slice(i).match(/^\{(\d+)(?:-(\d+|\*))?\}/);
+        if (!m) return null;
+        out += `(?:${BYTE}){${m[1]}${m[2] === undefined ? "" : m[2] === "*" ? "," : `,${m[2]}`}}`;
+        i += m[0].length;
+      } else if (c === "[") {
+        const m = p.slice(i).match(/^\[(!?)([0-9a-f]{2})(?::([0-9a-f]{2}))?\]/);
+        if (!m) return null;
+        const set = byteRange(parseInt(m[2], 16), parseInt(m[3] ?? m[2], 16));
+        out += m[1] ? `(?!${set})${BYTE}` : set;
+        i += m[0].length;
+      } else if (c === "(") {
+        i++;
+        const alts: string[] = [];
+        for (;;) {
+          const a = seq("|)");
+          if (a === null) return null;
+          alts.push(a);
+          if (p[i] === "|") { i++; continue; }
+          if (p[i] === ")") { i++; break; }
+          return null;
+        }
+        out += `(?:${alts.join("|")})`;
+      } else return null;
+    }
+    return out;
+  };
+  const re = seq("");
+  return re !== null && i === p.length && re ? re : null;
+}
+
+const compiled = new Map<string, RegExp | null>();
+function sequenceRegex(s: Sequence): RegExp | null {
+  const key = `${s.position}:${s.offset ?? 0}:${s.max_offset ?? ""}:${s.pattern}`;
+  if (!compiled.has(key)) {
+    const body = compilePattern(s.pattern);
+    const off = s.offset ?? 0;
+    // Some PRONOM records give a max offset below the offset: read it as a fixed offset.
+    const max = s.max_offset != null && s.max_offset > off ? s.max_offset : off;
+    const gap = `(?:${BYTE}){${off}${max !== off ? `,${max}` : ""}}`;
+    let re: RegExp | null = null;
+    if (body !== null) {
+      try {
+        re = new RegExp(s.position === "bof" ? `^${gap}${body}` : s.position === "eof" ? `${body}${gap}$` : `^(?:${BYTE})*?${body}`);
+      } catch { re = null; } // a quantifier out of range: treated as unsupported
+    }
+    compiled.set(key, re);
+  }
+  return compiled.get(key)!;
+}
+
+/**
+ * Whether a signature matches, given the first bytes (head) and, optionally, the last bytes (tail)
+ * as hex. "unknown" when a sequence cannot be checked: no tail for an end-of-file sequence, or
+ * syntax not supported. A whole file small enough to fit in head serves as its own tail.
+ */
+export function signatureMatch(sig: Signature, head: string, tail?: string, whole = false): "match" | "fail" | "unknown" {
+  let unknown = false;
+  for (const s of sig.sequences) {
+    const re = sequenceRegex(s);
+    if (!re) { unknown = true; continue; }
+    const data = s.position === "eof" ? (tail ?? (whole ? head : undefined)) : s.position === "var" ? (whole ? head : tail ? head + tail : head) : head;
+    if (data === undefined) { unknown = true; continue; }
+    if (!re.test(data)) {
+      // A sequence searched in a truncated head may lie further in the file.
+      if (s.position !== "eof" && !whole) { unknown = true; continue; }
+      return "fail";
+    }
+  }
+  return unknown ? "unknown" : "match";
 }
 
 // ---------- conversion paths ----------

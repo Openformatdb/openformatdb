@@ -10,20 +10,28 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 
 let entries: Promise<IndexEntry[]> | null = null;
 function load(): Promise<IndexEntry[]> {
-  entries ??= Promise.all([fetch("/api/index.json").then((r) => r.json()), fetch("/api/magic.json").then((r) => r.json())])
-    .then(([index, magic]: [IndexEntry[], Record<string, [number, string][]>]) =>
-      index.map((e) => (magic[e.id] ? { ...e, identifiers: { ...e.identifiers, magic: magic[e.id].map(([offset, hex]): Magic => ({ offset, hex })) } } : e)));
+  entries ??= Promise.all([
+    fetch("/api/index.json").then((r) => r.json()),
+    fetch("/api/magic.json").then((r) => r.json()),
+    fetch("/api/signatures.json").then((r) => (r.ok ? r.json() : {}), () => ({})),
+  ]).then(([index, magic, sigs]: [IndexEntry[], Record<string, [number, string][]>, Record<string, { signatures: any[]; priority_over?: string[] }>]) =>
+      index.map((e) => (magic[e.id] || sigs[e.id] ? { ...e, identifiers: { ...e.identifiers,
+        ...(magic[e.id] ? { magic: magic[e.id].map(([offset, hex]): Magic => ({ offset, hex })) } : {}),
+        ...(sigs[e.id] ?? {}) } } : e)));
   return entries;
 }
 
 async function run(file: File) {
   status.textContent = `Reading ${file.name}…`;
   out.innerHTML = "";
-  const bytes = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
-  const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  // The first 8 KB and the last 1 KB: enough for start and end-of-file signatures, read locally.
+  const toHex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+  const whole = file.size <= 8192;
+  const hex = toHex(await file.slice(0, 8192).arrayBuffer());
+  const tail = whole ? undefined : toHex(await file.slice(Math.max(0, file.size - 1024)).arrayBuffer());
   const all = await load();
-  const cands = identify(all, { magic_hex: hex, extension: file.name, mime: file.type || undefined }, 10);
-  const bySig = cands.some((c) => c.matched.some((m) => m.startsWith("signature")));
+  const cands = identify(all, { magic_hex: hex, tail_hex: tail, whole_file: whole, extension: file.name, mime: file.type || undefined }, 10);
+  const bySig = cands.some((c) => c.matched.some((m) => m.startsWith("signature") || m === "full signature"));
   status.textContent = !cands.length
     ? `No known format matches ${file.name}. First bytes: ${hex.slice(0, 32)}…`
     : bySig ? `${cands.length} candidate${cands.length === 1 ? "" : "s"} for ${file.name}, best first.` : `No signature matched ${file.name}: these candidates come from its name or type only.`;

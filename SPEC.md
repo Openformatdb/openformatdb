@@ -108,6 +108,16 @@ under an open-source licence (P275) is said to read (P1072) or write (P1073) the
 whether a specification exists. A paywalled ISO standard can be `writable`; a format
 with no spec at all can be `readable` thanks to reverse engineering.
 
+## Identification
+
+`identifiers.magic` holds fixed prefixes (offset + hex, from every source). PRONOM records also
+carry `identifiers.signatures`: its full byte sequences (start of file, end of file, anywhere; hex
+with `??`, `*`, `{n-m}`, `[aa:bb]`, `[!aa]`, `(a|b)`), every sequence of a signature having to match,
+and `identifiers.priority_over`, the PUIDs a format wins over when both match (DROID's rule).
+`identify` ranks a full signature match first, then a prefix, then MIME, then extension; a format
+whose signatures were all checked and failed loses its prefix match. End-of-file sequences need
+the last bytes (`tail_hex`); the site reads the first 8 KB and the last 1 KB in the browser.
+
 ## Families and versions
 
 PRONOM and Wikidata often describe each version separately (PNG 1.0, 1.1, 1.2) and keep
@@ -158,6 +168,7 @@ cross-check. Every licence marked "to confirm" is checked before its importer is
 - `/api/index.json` — one core `IndexEntry` per format (identifiers without signatures, tool counts)
 - `/api/formats/<id>.json` — full merged record
 - `/api/magic.json` — `{id: [[offset, hex], …]}`, for identification
+- `/api/signatures.json` — `{id: {signatures, priority_over}}`: full PRONOM signatures and priorities
 - `/api/conversions.json` — `{id: [conversion, …]}` including inherited ones: the graph
 - `/api/sources.json` — sources with counts, licences and snapshot dates
 
