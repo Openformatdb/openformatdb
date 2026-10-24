@@ -143,7 +143,7 @@ site/                         static site: directory, format pages, identify pag
 |---|---|---|---|
 | PRONOM (github.com/nationalarchives/pronom) | reference ids (PUID), signatures | JSON in git | MIT (to confirm against OGL) |
 | Wikidata | id hub (QID ↔ PUID ↔ LoC), readers/writers (P1072/P1073) | SPARQL / dump | CC0 |
-| File Formats Wiki (Archive Team) | prose, specs, tool lists, legacy formats | MediaWiki API / dump | CC0 |
+| File Formats Wiki (Archive Team, imported) | ids from {{Ext}}, {{Mimetype}}, {{PRONOM}}, {{Wikidata}}, {{LoCFDD}}, {{Magic}}; intro, software and specification links; legacy formats | MediaWiki API | CC0 |
 | Library of Congress FDD | qualified descriptions, PUID/QID crosswalk | XML | US public domain (to confirm) |
 | mime-db, shared-mime-info, Tika | MIME types, extensions, globs | JSON / XML | MIT / GPL-2.0+ (facts only) / Apache-2.0 |
 | Kaitai Struct formats (imported) | grammars, attached to the records holding the PUIDs/QIDs a spec names; licence per file | git | per file, kept on each parser entry; only links are stored |
