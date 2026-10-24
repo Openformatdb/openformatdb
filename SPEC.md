@@ -146,7 +146,7 @@ site/                         static site: directory, format pages, identify pag
 | File Formats Wiki (Archive Team) | prose, specs, tool lists, legacy formats | MediaWiki API / dump | CC0 |
 | Library of Congress FDD | qualified descriptions, PUID/QID crosswalk | XML | US public domain (to confirm) |
 | mime-db, shared-mime-info, Tika | MIME types, extensions, globs | JSON / XML | MIT / GPL-2.0+ (facts only) / Apache-2.0 |
-| Kaitai Struct formats | grammars + xref to PUID/QID | git | per file — link, copy only when allowed |
+| Kaitai Struct formats (imported) | grammars, attached to the records holding the PUIDs/QIDs a spec names; licence per file | git | per file, kept on each parser entry; only links are stored |
 | ImHex-Patterns, fq, PolyFile | grammars, decoders | git | GPL-2.0 (link only) / MIT / Apache-2.0 |
 | FFmpeg, Pandoc, LibreOffice, ImageMagick | conversion edges | each tool's own format listing | facts extracted, no code copied |
 
