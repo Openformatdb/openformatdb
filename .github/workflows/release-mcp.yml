@@ -61,4 +61,7 @@ jobs:
           # HTTP proof (https://openformatdb.org/.well-known/mcp-registry-auth), else the same record as DNS TXT.
           ./mcp-publisher login http --domain openformatdb.org --private-key "$KEY" \
             || ./mcp-publisher login dns --domain openformatdb.org --private-key "$KEY"
+          # The registry checks the npm version exists; a fresh publish takes a moment to show up.
+          v=$(node -p "require('./packages/mcp/package.json').version")
+          for i in $(seq 1 30); do npm view "@openformatdb/mcp@$v" version >/dev/null 2>&1 && break; sleep 10; done
           cd packages/mcp && ../../mcp-publisher publish
