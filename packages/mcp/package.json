@@ -22,7 +22,7 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "bin": {
-    "openformatdb-mcp": "./dist/server.js"
+    "openformatdb-mcp": "dist/server.js"
   },
   "exports": {
     ".": "./dist/tools.js"
