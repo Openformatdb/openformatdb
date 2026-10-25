@@ -40,7 +40,8 @@ async function run() {
     : `No recorded chain from ${link(from)} to ${link(to)}. Their format pages list the software that reads or writes each.`;
   out.innerHTML = paths.map((p, i) => `<div class="card"><h2>${i + 1}. ${esc(FIDELITY_LABEL[p.fidelity])}</h2><ol>` +
     p.steps.map((s) => `<li>${esc(s.tool)}: ${link(s.from)} → ${link(s.to)} <span class="small muted">(${esc(FIDELITY_LABEL[s.fidelity])})</span>` +
-      (s.command ? `<br /><code>${esc(s.command)}</code>` : "") + (s.losses ? `<div class="small muted">${esc(s.losses)}</div>` : "") + `</li>`).join("") +
+      (s.engine ? ` <span class="tag" title="Runs on this page: choose your file above">in browser</span>` : "") +
+      (s.command && !s.engine ? `<br /><code>${esc(s.command)}</code>` : "") + (s.losses ? `<div class="small muted">${esc(s.losses)}</div>` : "") + `</li>`).join("") +
     `</ol></div>`).join("");
   history.replaceState(null, "", `?from=${encodeURIComponent(fromEl.value)}&to=${encodeURIComponent(toEl.value)}`);
 }

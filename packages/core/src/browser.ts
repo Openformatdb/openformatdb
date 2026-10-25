@@ -23,7 +23,7 @@ export interface Spec { availability: "open-standard" | "paywalled-standard" | "
 export interface StructurePart { name: string; status: "unknown" | "partial" | "documented"; confidence?: "low" | "medium" | "high"; spec?: string; notes?: string }
 export interface Parser { engine: string; url: string; license?: string; coverage?: "full" | "partial" | "header-only"; via?: string }
 export interface Tool { name: string; url: string; license?: string; open_source?: boolean; reads?: boolean; writes?: boolean; platforms?: string[]; notes?: string; via?: string }
-export interface Conversion { to: string; tool: string; command?: string; fidelity: "lossless" | "lossy" | "partial"; losses?: string; url?: string; via?: string }
+export interface Conversion { to: string; tool: string; command?: string; fidelity: "lossless" | "lossy" | "partial"; losses?: string; url?: string; engine?: string; via?: string }
 export interface Sample { url: string; license?: string; notes?: string }
 export interface Project { name: string; url: string; kind: string; license?: string; official?: boolean }
 export interface Claim { who: string; contact: string; scope: string; since: string; expires: string; agent?: string }
@@ -389,7 +389,7 @@ export function signatureMatch(sig: Signature, head: string, tail?: string, whol
 
 // ---------- conversion paths ----------
 
-export interface Step { from: string; to: string; tool: string; command?: string; fidelity: Conversion["fidelity"]; losses?: string; via?: string }
+export interface Step { from: string; to: string; tool: string; command?: string; fidelity: Conversion["fidelity"]; losses?: string; engine?: string; via?: string }
 export interface ConversionPath { steps: Step[]; fidelity: Conversion["fidelity"]; cost: number }
 
 const COST: Record<Conversion["fidelity"], number> = { lossless: 1, partial: 2, lossy: 3 };
@@ -424,7 +424,7 @@ export function conversionPaths(records: Pick<FormatRecord, "id" | "family" | "c
     best.set(cur.at, seenHere);
     for (const c of byId.get(cur.at)?.conversions ?? []) {
       if (c.to === from || cur.steps.some((s) => s.from === c.to)) continue;
-      const step: Step = { from: cur.at, to: c.to, tool: c.tool, ...(c.command ? { command: c.command } : {}), fidelity: c.fidelity, ...(c.losses ? { losses: c.losses } : {}), ...(c.via ? { via: c.via } : {}) };
+      const step: Step = { from: cur.at, to: c.to, tool: c.tool, ...(c.command ? { command: c.command } : {}), fidelity: c.fidelity, ...(c.losses ? { losses: c.losses } : {}), ...(c.engine ? { engine: c.engine } : {}), ...(c.via ? { via: c.via } : {}) };
       queue.push({ at: c.to, steps: [...cur.steps, step], cost: cur.cost + COST[c.fidelity] + 0.1 });
     }
   }

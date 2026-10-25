@@ -7,11 +7,13 @@ import {
 } from "@openformatdb/core";
 import type { Backend } from "./backend.ts";
 import { claimFormat, publishFindings } from "./write.ts";
+import { convertFile } from "./convert.ts";
+import type { Host } from "@openformatdb/engines";
 
 const CATEGORIES: string[] = SCHEMA.properties.category.enum;
 const en = (values: string[]) => z.enum(values as [string, ...string[]]);
 
-export interface Context { backend: Backend; today?: string }
+export interface Context { backend: Backend; today?: string; /** Where convert_file gets its engines (tests: local packages only). */ engineHost?: Host }
 export type Result = { ok: true; [k: string]: unknown } | { ok: false; error: string; [k: string]: unknown };
 
 const fail = (error: string, extra: Record<string, unknown> = {}): Result => ({ ok: false, error, ...extra });
@@ -220,9 +222,12 @@ const findConversion: ToolDef = {
       to: { id: d0.id, name: d0.name, ...(d0.version ? { version: d0.version } : {}) },
       found: paths.length > 0,
       paths: paths.map((p) => ({ fidelity: p.fidelity, steps: p.steps.map((st) => ({ ...st, to_name: names.get(st.to)?.name })) })),
-      note: paths.length
-        ? (srcs.length > 1 || dsts.length > 1 ? "An extension can mean several formats: paths were searched from and to each of them; pass ids to be exact." : undefined)
-        : "No chain of recorded conversions links them. lookup_format on both lists the software that reads or writes each.",
+      note: [
+        paths.some((p) => p.steps.some((st) => st.engine)) ? "Steps with an `engine` run on this machine with convert_file (pass the file path and the target extension)." : "",
+        paths.length
+          ? (srcs.length > 1 || dsts.length > 1 ? "An extension can mean several formats: paths were searched from and to each of them; pass ids to be exact." : "")
+          : "No chain of recorded conversions links them. lookup_format on both lists the software that reads or writes each.",
+      ].filter(Boolean).join(" ") || undefined,
     };
   },
 };
@@ -237,6 +242,9 @@ const listSources: ToolDef = {
   },
 };
 
-export const TOOLS: ToolDef[] = [identifyFile, lookupFormat, searchFormats, findConversion, listSources, claimFormat, publishFindings];
+export const TOOLS: ToolDef[] = [identifyFile, lookupFormat, searchFormats, findConversion, convertFile, listSources, claimFormat, publishFindings];
 
 export const READ_ONLY = new Set(["identify_file", "lookup_format", "search_formats", "find_conversion", "list_sources"]);
+
+/** Tools that reach the network: convert_file downloads an engine on first use. */
+export const OPEN_WORLD = new Set(["convert_file"]);

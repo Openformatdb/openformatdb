@@ -149,6 +149,7 @@
           "fidelity": { "enum": ["lossless", "lossy", "partial"] },
           "losses": { "type": "string", "description": "What does not survive the conversion" },
           "url": { "type": "string", "format": "uri" },
+          "engine": { "type": "string", "pattern": "^[a-z0-9]+$", "description": "WebAssembly engine (packages/engines) that runs it in the browser and in the MCP server's convert_file" },
           "via": { "$ref": "#/$defs/formatId", "description": "Set on load: inherited from this family record, not stated for this version" }
         }
       }

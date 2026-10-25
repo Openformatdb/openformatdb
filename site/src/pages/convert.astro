@@ -1,9 +1,40 @@
 ---
 import Base from "../layouts/Base.astro";
+import { ENGINES, PINS, assetKey } from "@openformatdb/engines";
+const mb = (n: number) => `${Math.round(n / 1e6)} MB`;
+const engines = ENGINES.map((e) => ({ ...e, size: e.assets.reduce((s, a) => s + (PINS[assetKey(e, a)]?.size ?? 0), 0), reads: e.formats.filter((f) => f.read).length }));
 ---
-<Base title="Convert a file" description="The open tools and commands to convert a file from one format to another, and what each step loses.">
+<Base title="Convert a file" description="Convert a file in your browser with open-source engines compiled to WebAssembly: nothing is uploaded. Or find the chains of open tools between two formats.">
   <h1>Convert a file</h1>
-  <p class="lede">Give the format you have and the one you want, as an extension (<code>wpd</code>, <code>xls</code>) or a format id. You get the cheapest chains of open tools, lossless steps first, with the commands.</p>
+  <p class="lede">Convert it <strong>here, in your browser</strong>: open-source converters compiled to WebAssembly run on your machine, so the file is never uploaded. Each engine is downloaded once, on first use.</p>
+
+  <section id="engine-convert" class="card">
+    <label for="file" class="btn primary">Choose a file</label>
+    <input id="file" type="file" class="sr-only" />
+    <span class="small muted">…or drop it on this box.</span>
+    <div id="choose" hidden>
+      <p id="detected" class="small"></p>
+      <div class="filters convert-to">
+        <div><label for="target">Convert to</label><select id="target"></select></div>
+        <div><label>&nbsp;</label><button id="go" class="btn primary" type="button">Convert</button></div>
+      </div>
+      <p id="plan" class="small muted"></p>
+    </div>
+    <p id="run-status" class="small" aria-live="polite"></p>
+    <progress id="progress" max="1" value="0" hidden></progress>
+    <ul id="results" class="list-plain"></ul>
+  </section>
+
+  <details class="engines">
+    <summary class="small">Engines ({engines.length}), downloaded on demand</summary>
+    <ul class="small">
+      {engines.map((e) => <li><a href={e.url}>{e.name}</a>: reads {e.reads} formats, writes {e.targets.map((t) => `.${t}`).join(" ")}. {mb(e.size)}, {e.license}. <code>{e.package.name}@{e.package.version}</code></li>)}
+    </ul>
+    <p class="small muted">Files come from jsDelivr (or unpkg), pinned to these versions and checked against their SHA-256 before use. They stay in your browser's cache. The same engines run in the <a href="/agents/">MCP server</a> as <code>convert_file</code>.</p>
+  </details>
+
+  <h2>Find a way between two formats</h2>
+  <p>Give the format you have and the one you want, as an extension (<code>wpd</code>, <code>xls</code>) or a format id. You get the cheapest chains of open tools, lossless steps first, with the commands. Steps marked <span class="tag">in browser</span> run on this page.</p>
   <form id="convert" class="filters">
     <div><label for="from">From</label><input id="from" name="from" placeholder="e.g. wpd" required autocomplete="off" /></div>
     <div><label for="to">To</label><input id="to" name="to" placeholder="e.g. pdf" required autocomplete="off" /></div>
@@ -11,6 +42,16 @@ import Base from "../layouts/Base.astro";
   </form>
   <p id="status" class="small muted" aria-live="polite"></p>
   <div id="paths"></div>
-  <p class="small muted">Conversions come from what FFmpeg, ImageMagick, Pandoc and LibreOffice report they read and write. Extensions are mapped to their most common format: open a format page for the exact versions.</p>
+  <p class="small muted">Conversions come from what FFmpeg, ImageMagick, Pandoc and LibreOffice report they read and write, and from the WebAssembly engines above. Extensions are mapped to their most common format: open a format page for the exact versions.</p>
+  <script src="../scripts/engine-convert.ts"></script>
   <script src="../scripts/convert.ts"></script>
 </Base>
+<style>
+  #engine-convert.drag { outline: 2px dashed var(--accent); }
+  #engine-convert > .small { margin-left: 8px; }
+  .convert-to { grid-template-columns: 1fr; }
+  @media (min-width: 720px) { .convert-to { grid-template-columns: 2fr 1fr; } }
+  #progress { width: 100%; }
+  #results li { margin: 6px 0; }
+  .engines { margin: 14px 0 28px; }
+</style>

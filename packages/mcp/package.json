@@ -38,7 +38,7 @@
   "scripts": {
     "start": "node src/server.ts",
     "test": "node --test test/*.test.ts",
-    "build": "esbuild src/server.ts src/tools.ts --bundle --platform=node --format=esm --target=node20 --outdir=dist --external:@modelcontextprotocol/sdk --external:zod --external:yaml --external:ajv --external:ajv-formats && cp ../../LICENSE LICENSE",
+    "build": "esbuild src/server.ts src/tools.ts --bundle --splitting --chunk-names=chunks/[name]-[hash] \"--banner:js=import { createRequire as __ofdbRequire } from 'node:module'; const require = __ofdbRequire(import.meta.url); const __filename = new URL(import.meta.url).pathname; const __dirname = __filename.slice(0, __filename.lastIndexOf('/'));\" --platform=node --format=esm --target=node20 --outdir=dist --external:@modelcontextprotocol/sdk --external:zod --external:yaml --external:ajv --external:ajv-formats && cp ../../LICENSE LICENSE",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
@@ -50,7 +50,8 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
-    "@openformatdb/core": "*"
+    "@openformatdb/core": "*",
+    "@openformatdb/engines": "*"
   },
   "publishConfig": {
     "access": "public"

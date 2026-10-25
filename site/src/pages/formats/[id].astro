@@ -73,6 +73,7 @@ const exts = (ids.extensions ?? []).map((e) => `.${e}`).join(", ");
   )}
 
   <h2 id="convert">Convert it</h2>
+  {conversions.some((c) => c.engine) && <p><a class="btn primary" href="/convert/">Convert a file in your browser</a> <span class="small muted">The steps marked “in browser” run on your machine; nothing is uploaded.</span></p>}
   {conversions.length === 0 ? <p class="section-empty">No conversion recorded. One of the tools above may export it; <a href="/convert/">search for a chain</a>.</p> : (
     <div class="table-wrap"><table class="stackable">
       <thead><tr><th>To</th><th>With</th><th>Fidelity</th><th>Command and losses</th></tr></thead>
@@ -82,7 +83,7 @@ const exts = (ids.extensions ?? []).map((e) => `.${e}`).join(", ");
             <td data-label="To"><a href={formatUrl(c.to)}>{byId.get(c.to) ? displayName(byId.get(c.to)!.name, byId.get(c.to)!.version) : c.to}</a></td>
             <td data-label="With">{c.url ? <a href={c.url}>{c.tool}</a> : c.tool}</td>
             <td data-label="Fidelity">{FIDELITY_LABEL[c.fidelity]}</td>
-            <td data-label="Command">{c.command && <code>{c.command}</code>}{c.losses && <div class="small muted">{c.losses}</div>}</td>
+            <td data-label="Command">{c.engine ? <span class="tag">in browser</span> : c.command && <code>{c.command}</code>}{c.losses && <div class="small muted">{c.losses}</div>}</td>
           </tr>
         ))}
       </tbody>

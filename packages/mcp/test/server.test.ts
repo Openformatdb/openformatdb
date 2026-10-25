@@ -17,7 +17,7 @@ test("stdio server lists the tools and identifies a PNG", async () => {
       command: process.execPath, args: [SERVER], env: { ...process.env, OFDB_REPO: root } as Record<string, string>, stderr: "ignore",
     }));
     const { tools } = await client.listTools();
-    assert.deepEqual(tools.map((t) => t.name).sort(), ["claim_format", "find_conversion", "identify_file", "list_sources", "lookup_format", "publish_findings", "search_formats"]);
+    assert.deepEqual(tools.map((t) => t.name).sort(), ["claim_format", "convert_file", "find_conversion", "identify_file", "list_sources", "lookup_format", "publish_findings", "search_formats"]);
     assert.ok(tools.find((t) => t.name === "identify_file")!.inputSchema.properties!.magic_hex);
     const res: any = await client.callTool({ name: "identify_file", arguments: { magic_hex: "89504e470d0a1a0a0000000d49484452" } });
     assert.equal(res.isError, false);

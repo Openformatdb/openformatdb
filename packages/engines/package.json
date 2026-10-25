@@ -1,0 +1,28 @@
+{
+  "name": "@openformatdb/engines",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WebAssembly converters run on the user's machine (browser or Node), loaded on demand",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts",
+    "./browser": "./src/browser.ts"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "pin": "node scripts/pin.ts",
+    "check-cdn": "node scripts/check-cdn.ts"
+  },
+  "dependencies": {
+    "@bjorn3/browser_wasi_shim": "0.4.2",
+    "@ffmpeg/core": "0.12.10",
+    "@imagemagick/magick-wasm": "0.0.45",
+    "@resvg/resvg-wasm": "2.6.2",
+    "7z-wasm": "1.2.0",
+    "assimpjs": "0.0.10",
+    "gdal3.js": "2.8.1",
+    "pandoc-wasm": "1.1.0"
+  }
+}

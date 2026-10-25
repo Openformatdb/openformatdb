@@ -7,14 +7,17 @@ An open directory of file formats: how to recognise each one, which open tools r
 write and convert it, how far its structure is documented or reverse engineered, and
 what a conversion loses — so that nobody, human or AI agent, redoes work that already exists.
 
-- **Humans**: browse the directory and format pages, identify a file and find a conversion on
-  [openformatdb.org](https://openformatdb.org) (`site/`).
+- **Humans**: browse the directory and format pages, identify a file, and convert it in the
+  browser (nothing is uploaded) or find a chain of tools, on [openformatdb.org](https://openformatdb.org) (`site/`).
 - **Agents**: query it through the MCP server ([`packages/mcp`](packages/mcp)) before opening,
   converting or reverse engineering a file: `identify_file`, `lookup_format`, `search_formats`, `find_conversion`,
-  `claim_format`, `publish_findings`.
+  `convert_file`, `claim_format`, `publish_findings`.
+- **Engines** ([`packages/engines`](packages/engines)): ImageMagick, FFmpeg, Pandoc, 7-Zip, GDAL,
+  Assimp and resvg compiled to WebAssembly, run where the file is (browser or the agent's machine),
+  each downloaded once on first use, pinned and checksummed.
 - **Existing sources** (PRONOM, Wikidata, Archive Team's File Formats Wiki, Library of
   Congress FDD, Kaitai Struct, MIME databases, converter format lists…) are aggregated by
-  importers (`packages/importers`; PRONOM, Wikidata, the File Formats Wiki, Kaitai Struct and converters (FFmpeg, ImageMagick, Pandoc, LibreOffice) today), with a link back to each source.
+  importers (`packages/importers`; PRONOM, Wikidata, the File Formats Wiki, Kaitai Struct, converters (FFmpeg, ImageMagick, Pandoc, LibreOffice) and the engines today), with a link back to each source.
 
 Sister project of [OpenDeviceDB](https://opendevicedb.org).
 

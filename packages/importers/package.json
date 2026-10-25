@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@openformatdb/core": "*",
-    "yaml": "^2.6.0"
+    "yaml": "^2.6.0",
+    "@openformatdb/engines": "*"
   }
 }

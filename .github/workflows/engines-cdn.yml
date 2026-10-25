@@ -1,0 +1,21 @@
+name: Engines CDN check
+# The WebAssembly engines are fetched by browsers and by the MCP server from jsDelivr and unpkg,
+# pinned and checksummed (packages/engines/src/assets.ts). Check that the mirrors serve them.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+  push:
+    branches: [main]
+    paths: ["packages/engines/src/assets.ts", "packages/engines/src/registry.ts"]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run check-cdn -w @openformatdb/engines

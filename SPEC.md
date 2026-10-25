@@ -143,7 +143,8 @@ data/imported/<source>.json   importer snapshots {source, license, fetched_at, r
 news/YYYY-MM-DD-slug.md       news posts (frontmatter: title, date, summary, tags)
 packages/core                 load + validate + merge + search (TypeScript, used by all)
 packages/importers            one module per external source, `npm run import -- <source>`
-packages/mcp                  MCP server for agents (identify, lookup, convert-path, claim, publish)
+packages/engines              WebAssembly converters run on the user's machine (browser, MCP), loaded on demand
+packages/mcp                  MCP server for agents (identify, lookup, convert-path, convert, claim, publish)
 site/                         static site: directory, format pages, identify page, news, API json
 ```
 
@@ -159,6 +160,7 @@ site/                         static site: directory, format pages, identify pag
 | Kaitai Struct formats (imported) | grammars, attached to the records holding the PUIDs/QIDs a spec names; licence per file | git | per file, kept on each parser entry; only links are stored |
 | ImHex-Patterns, fq, PolyFile | grammars, decoders | git | GPL-2.0 (link only) / MIT / Apache-2.0 |
 | FFmpeg, Pandoc, LibreOffice, ImageMagick | conversion edges | each tool's own format listing | facts extracted, no code copied |
+| WebAssembly engines (`packages/engines`) | conversion edges with `engine`: steps that run in the browser and in `convert_file` | the engines registry | CC0 (our own declarations) |
 
 Later: TrID, libmagic, Linguist, NARA, COPTR, digipres.org's `registries.db` as a
 cross-check. Every licence marked "to confirm" is checked before its importer is merged.
@@ -187,6 +189,7 @@ The MCP server reads this API remotely (`OFDB_API_URL`) or the local repository
 | `lookup_format(id or puid or wikidata or mime)` | full record + live claims; says explicitly "nothing known" when so |
 | `search_formats(query, category?, status?)` | ranked matches by name, alias, identifiers |
 | `find_conversion(from, to)` | shortest paths in the conversion graph, preferring lossless edges and open tools, with the commands and the losses |
+| `convert_file(path, to?, output?)` | converts a local file with the WebAssembly engines (below); without `to`, lists what it can become |
 | `claim_format(id, who, contact, scope, days)` | adds a claim (creates a stub record if needed) |
 | `publish_findings(id, record_patch)` | merges findings into the record, validates, writes it |
 | `list_sources()` | imported sources with record counts, licences and snapshot dates |
@@ -200,6 +203,36 @@ tool's categories (the record most software handles wins: `.pdf` is PDF, not PDF
 few common targets per tool, with a fidelity and what is lost. Versions inherit their family's
 conversions (`via`). `find_conversion` runs a cheapest-path search (lossless 1, partial 2, lossy 3).
 
+## Engines: conversions on the user's machine
+
+`packages/engines` runs open-source converters compiled to WebAssembly where the file is: in the
+visitor's browser (the Convert page, in a worker) and on the machine of the agent running the MCP
+server (`convert_file`). No file is uploaded and no server of ours does any work.
+
+| engine | npm package (pinned) | reads → writes |
+|---|---|---|
+| ImageMagick | `@imagemagick/magick-wasm` | ~80 image and raw photo formats → PNG, JPEG, WebP, AVIF, JPEG XL, GIF, TIFF, BMP, ICO, QOI, PDF |
+| resvg | `@resvg/resvg-wasm` | SVG → PNG (ImageMagick's WebAssembly build has no SVG reader) |
+| FFmpeg | `@ffmpeg/core` (single-threaded) | ~45 audio and video formats → MP4, WebM, MKV, MOV, AVI, GIF, MP3, WAV, FLAC, Ogg, Opus, M4A |
+| Pandoc | `pandoc-wasm` (official WASI build) | ~25 document and markup formats → DOCX, ODT, HTML, Markdown, EPUB, RTF, LaTeX, Typst… |
+| 7-Zip | `7z-wasm` | ~25 archive and image formats → ZIP, 7z, tar (extract and repack) |
+| GDAL | `gdal3.js` | vector and raster geodata → GeoJSON, KML, GPX, GeoPackage, FlatGeobuf, GML, DXF, CSV; GeoTIFF, ASCII grid, XYZ, PNG |
+| Assimp | `assimpjs` | ~25 3D formats → glTF (GLB, or .gltf with its .bin) |
+
+- **Registry** (`src/registry.ts`): per engine, the formats it reads and writes by extension (with
+  the record to attach to when the extension alone picks the wrong one), its targets, which pairs
+  make sense (audio does not become video), and a fidelity with what is lost. Plain data: the site,
+  the importer and the MCP server load it eagerly.
+- **Planning**: steps between extensions; a cheapest-path search (same costs as `find_conversion`)
+  chains engines (SVG → PNG with resvg, then → WebP with ImageMagick).
+- **Loading on demand**: an engine's JavaScript is a separate chunk; its WebAssembly (2 to 59 MB)
+  is fetched on first use from jsDelivr, else unpkg, pinned to the package version and checked
+  against the SHA-256 in `src/assets.ts` (`npm run pin` regenerates it). The browser keeps it in
+  Cache Storage; Node in `~/.cache/openformatdb/engines` (`OFDB_ENGINES_DIR`), or uses the npm
+  package when installed (a checkout). A weekly workflow checks the mirrors serve the pinned files.
+- **Data**: the `engines` importer turns the registry into tools and conversion edges carrying
+  `engine`, so format pages, the Convert page and `find_conversion` say which steps run locally.
+
 `identify_file` takes the first bytes as hex from the agent, which reads the file
 locally; nothing about the user's file leaves their machine beyond that prefix.
 In v0 writes go to the local repository checkout; the contributor opens the PR.
@@ -207,7 +240,7 @@ In v0 writes go to the local repository checkout; the contributor opens the PR.
 ## Out of scope for v0
 
 Accounts, comments, a write API, hosting sample files, running conversions on our
-servers, automatic verification.
+servers (they run on the user's machine: see Engines), automatic verification.
 
 ## Roadmap (ideas, to be specified before any code)
 

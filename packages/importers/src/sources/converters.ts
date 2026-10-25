@@ -226,7 +226,7 @@ const source: Source = {
     const tools = [ffmpeg(), imagemagick(), pandoc(), libreoffice()].filter((t): t is ToolFormats => !!t);
     if (tools.length < 2) throw new Error(`only ${tools.length} converter(s) installed; install ffmpeg, imagemagick, pandoc (and libreoffice)`);
     // Map onto every other source, never onto our own previous snapshot.
-    const records = linkFamilies(mergeAll([loadCurated().map((c) => c.record), ...loadSnapshots().filter((s) => s.source !== "converters").map((s) => s.records)]));
+    const records = linkFamilies(mergeAll([loadCurated().map((c) => c.record), ...loadSnapshots().filter((s) => s.source !== "converters" && s.source !== "engines").map((s) => s.records)]));
     return toRecords(tools, resolver(records));
   },
 };
