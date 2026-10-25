@@ -2,19 +2,19 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "org.openformatdb/openformatdb",
   "title": "OpenFormatDB",
-  "description": "Identify a file, find which open tools read, write and convert its format (14,000+ formats).",
+  "description": "Identify a file, find open tools for its format, convert it locally with WebAssembly.",
   "repository": {
     "url": "https://github.com/openformatdb/openformatdb",
     "source": "github",
     "subfolder": "packages/mcp"
   },
   "websiteUrl": "https://openformatdb.org/agents/",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@openformatdb/mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "transport": { "type": "stdio" }
     }
   ]

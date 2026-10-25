@@ -1,8 +1,8 @@
 {
   "name": "@openformatdb/mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "mcpName": "org.openformatdb/openformatdb",
-  "description": "MCP server for OpenFormatDB: identify a file, find which open tools read, write and convert its format",
+  "description": "MCP server for OpenFormatDB: identify a file, find which open tools read, write and convert its format, and convert it locally with WebAssembly engines",
   "keywords": [
     "mcp",
     "model-context-protocol",
