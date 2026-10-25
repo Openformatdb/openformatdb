@@ -36,7 +36,7 @@ jobs:
         run: npm run build -w @openformatdb/mcp
       - if: ${{ !inputs.registry_only }}
         name: Check the tarball keeps the bin
-        run: cd packages/mcp && npm pack --dry-run --json | node -e "const p=JSON.parse(require('fs').readFileSync(0))[0]; if(!p.files.some(f=>f.path==='dist/server.js')) process.exit(1)" && node -p "require('./package.json').bin['openformatdb-mcp']"
+        run: cd packages/mcp && npm pack --dry-run --json | node -e "const j=JSON.parse(require('fs').readFileSync(0)); const p=Array.isArray(j)?j[0]:(j.files?j:Object.values(j)[0]); if(!p||!p.files.some(f=>f.path==='dist/server.js')) process.exit(1)" && node -p "require('./package.json').bin['openformatdb-mcp']"
       - if: ${{ !inputs.registry_only }}
         run: npm publish -w @openformatdb/mcp --provenance --access public
       - name: Publish to the MCP Registry
