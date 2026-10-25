@@ -9,7 +9,7 @@ import { TOOLS, READ_ONLY, type Context } from "./tools.ts";
 
 export function createServer(backend: Backend, opts: { today?: string } = {}): McpServer {
   const server = new McpServer(
-    { name: "openformatdb", version: "0.1.0" },
+    { name: "openformatdb", version: "0.2.0" },
     {
       instructions:
         "OpenFormatDB is a directory of file formats: how to recognise each one, which software reads, writes and converts it, " +
