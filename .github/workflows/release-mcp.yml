@@ -21,7 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
-        with: { node-version: 24, cache: npm, registry-url: "https://registry.npmjs.org" }
+        # No registry-url: it writes an .npmrc with a placeholder NODE_AUTH_TOKEN that npm would send
+        # instead of the trusted-publishing (OIDC) token.
+        with: { node-version: 24, cache: npm }
       - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
       - run: npm ci
       - run: npm test
@@ -38,7 +40,7 @@ jobs:
         name: Check the tarball keeps the bin
         run: cd packages/mcp && npm pack --dry-run --json | node -e "const j=JSON.parse(require('fs').readFileSync(0)); const p=Array.isArray(j)?j[0]:(j.files?j:Object.values(j)[0]); if(!p||!p.files.some(f=>f.path==='dist/server.js')) process.exit(1)" && node -p "require('./package.json').bin['openformatdb-mcp']"
       - if: ${{ !inputs.registry_only }}
-        run: npm publish -w @openformatdb/mcp --provenance --access public
+        run: cd packages/mcp && npm publish --provenance --access public # from the package itself: OIDC with -w is unreliable
       - name: Publish to the MCP Registry
         env:
           KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
