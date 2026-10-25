@@ -3,10 +3,11 @@
 import { createHash } from "node:crypto";
 import { ENGINES, PINS, assetKey, assetUrls } from "../src/index.ts";
 
-let bad = 0;
+let missing = 0;
 for (const e of ENGINES) {
   for (const a of e.assets) {
     const pin = PINS[assetKey(e, a)];
+    let served = 0;
     for (const url of assetUrls(e, a)) {
       const t0 = Date.now();
       try {
@@ -15,14 +16,14 @@ for (const e of ENGINES) {
         const data = new Uint8Array(await res.arrayBuffer());
         const sha = createHash("sha256").update(data).digest("hex");
         const ok = res.ok && sha === pin.sha256 && cors === "*";
-        if (!ok) bad++;
+        if (ok) served++;
         console.log(`${ok ? "ok  " : "FAIL"} ${url} HTTP ${res.status}, ${data.length} bytes, CORS ${cors ?? "none"}, ${sha === pin.sha256 ? "checksum ok" : "checksum MISMATCH"}, ${Date.now() - t0} ms`);
       } catch (err: any) {
-        bad++;
         console.log(`FAIL ${url}: ${err?.message ?? err}`);
       }
     }
+    if (!served) { missing++; console.log(`MISSING ${assetKey(e, a)}: no mirror serves it`); }
   }
 }
-// Every file needs at least one working mirror; report all failures anyway.
-process.exit(bad ? 1 : 0);
+// A failing mirror is tolerated (the next one is tried); a file no mirror serves is not.
+process.exit(missing ? 1 : 0);

@@ -142,10 +142,14 @@ export function downloadSize(engineIds: Iterable<string>): number {
 
 export const assetKey = (e: EngineInfo, path: string) => `${e.package.name}@${e.package.version}/${path}`;
 
+/** jsDelivr refuses files over 50 MB (HTTP 403); unpkg serves them. */
+const JSDELIVR_MAX = 50 * 1024 * 1024;
+
 /** CDN URLs for an asset, tried in order. */
 export function assetUrls(e: EngineInfo, path: string): string[] {
-  const p = `${e.package.name}@${e.package.version}/${path}`;
-  return [`https://cdn.jsdelivr.net/npm/${p}`, `https://unpkg.com/${p}`];
+  const p = assetKey(e, path);
+  const urls = [`https://cdn.jsdelivr.net/npm/${p}`, `https://unpkg.com/${p}`];
+  return (PINS[p]?.size ?? 0) > JSDELIVR_MAX ? urls.reverse() : urls;
 }
 
 // ---------- running ----------

@@ -7,10 +7,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PINS } from "./assets.ts";
-import type { EngineInfo, Host } from "./index.ts";
-
-const assetKey = (e: EngineInfo, path: string) => `${e.package.name}@${e.package.version}/${path}`;
-const assetUrls = (e: EngineInfo, path: string) => [`https://cdn.jsdelivr.net/npm/${assetKey(e, path)}`, `https://unpkg.com/${assetKey(e, path)}`];
+import { assetKey, assetUrls, type EngineInfo, type Host } from "./index.ts";
 
 /** node_modules/<name> of that exact version, looking up from the working directory and from here. */
 export function findPackageDir(name: string, version: string): string | null {

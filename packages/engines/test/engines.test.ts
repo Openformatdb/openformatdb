@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gzipSync } from "node:zlib";
-import { ENGINES, PINS, plans, targets, extKey, edges, convert, readable, downloadSize, assetKey } from "../src/index.ts";
+import { ENGINES, PINS, plans, targets, extKey, edges, convert, readable, downloadSize, assetKey, assetUrls } from "../src/index.ts";
 import { nodeHost } from "../src/node.ts";
 
 const host = nodeHost({ cacheDir: "/nonexistent-no-download" });
 const enc = (s: string) => new TextEncoder().encode(s);
-const head = (d: Uint8Array, n = 8) => new TextDecoder("latin1").decode(d.slice(0, n));
+const head = (d: Uint8Array, n = 8) => String.fromCharCode(...d.slice(0, n)); // TextDecoder("latin1") is windows-1252
 
 test("registry: every target is declared writable, every asset pinned", () => {
   for (const e of ENGINES) {
@@ -15,6 +15,10 @@ test("registry: every target is declared writable, every asset pinned", () => {
   }
   assert.ok(readable().length > 150);
   assert.ok(downloadSize(["pandoc"]) > 50e6);
+  // Over jsDelivr's 50 MB limit: unpkg first.
+  const pd = ENGINES.find((e) => e.id === "pandoc")!;
+  assert.match(assetUrls(pd, pd.assets[0])[0], /^https:\/\/unpkg\.com\//);
+  assert.match(assetUrls(ENGINES[0], ENGINES[0].assets[0])[0], /jsdelivr/);
 });
 
 test("planning: aliases, direct steps, chains through another engine", () => {
@@ -123,7 +127,7 @@ test("node host: downloads from the first mirror that serves the pinned bytes, c
     }) as any });
     const bytes = await h.asset(e, e.assets[0]);
     assert.equal(bytes.length, real.length);
-    assert.deepEqual(asked.map((u) => new URL(u).host), ["cdn.jsdelivr.net", "unpkg.com"]);
+    assert.deepEqual(asked.map((u) => new URL(u).host), ["cdn.jsdelivr.net", "unpkg.com"]); // 7zz.wasm is small: jsDelivr first
     assert.ok(existsSync(join(dir, `7z-wasm@${e.package.version}/7zz.wasm`)));
     assert.deepEqual(h.downloaded, [`7z-wasm@${e.package.version}/7zz.wasm`]);
     // Cached: no second download.

@@ -30,7 +30,7 @@ const engines = ENGINES.map((e) => ({ ...e, size: e.assets.reduce((s, a) => s + 
     <ul class="small">
       {engines.map((e) => <li><a href={e.url}>{e.name}</a>: reads {e.reads} formats, writes {e.targets.map((t) => `.${t}`).join(" ")}. {mb(e.size)}, {e.license}. <code>{e.package.name}@{e.package.version}</code></li>)}
     </ul>
-    <p class="small muted">Files come from jsDelivr (or unpkg), pinned to these versions and checked against their SHA-256 before use. They stay in your browser's cache. The same engines run in the <a href="/agents/">MCP server</a> as <code>convert_file</code>.</p>
+    <p class="small muted">Files come from jsDelivr or unpkg, pinned to these versions and checked against their SHA-256 before use. They stay in your browser's cache. The same engines run in the <a href="/agents/">MCP server</a> as <code>convert_file</code>.</p>
   </details>
 
   <h2>Find a way between two formats</h2>

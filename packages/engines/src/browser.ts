@@ -1,11 +1,9 @@
 // Browser host: engine files fetched from the CDNs, checked against their pinned SHA-256 and kept
 // in Cache Storage, so each engine is downloaded once per browser. Runs in a page or a worker.
 import { PINS } from "./assets.ts";
-import type { EngineInfo, Host } from "./index.ts";
+import { assetKey as key, assetUrls as urls, type EngineInfo, type Host } from "./index.ts";
 
 const CACHE = "openformatdb-engines-v1";
-const key = (e: EngineInfo, path: string) => `${e.package.name}@${e.package.version}/${path}`;
-const urls = (e: EngineInfo, path: string) => [`https://cdn.jsdelivr.net/npm/${key(e, path)}`, `https://unpkg.com/${key(e, path)}`];
 
 async function sha256(data: Uint8Array): Promise<string> {
   const h = await crypto.subtle.digest("SHA-256", data as BufferSource);
